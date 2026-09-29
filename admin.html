@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#020617">
+  <title>SenaMatch · Painel Administrativo</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = { theme: { extend: { fontFamily: { sans: ['"Bricolage Grotesque"', 'system-ui', 'sans-serif'] } } } };
+  </script>
+  <style type="text/tailwindcss">
+    @layer components {
+      .btn-p { @apply min-h-[48px] rounded-xl bg-emerald-600 px-4 text-sm font-semibold text-white transition-all duration-200 hover:bg-emerald-500 active:scale-[.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-400; }
+      .btn-s { @apply min-h-[44px] rounded-xl border border-slate-600 px-3 text-sm font-semibold text-amber-300 transition-all duration-200 hover:bg-slate-800 active:scale-[.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-400; }
+      .card { @apply rounded-2xl border border-slate-800 bg-slate-900 p-4; }
+      .inp { @apply min-h-[48px] w-full rounded-xl border border-slate-600 bg-slate-950 px-3 text-base text-slate-100 focus:border-emerald-500 focus:outline-none; }
+      .lbl { @apply mb-1 block text-sm text-slate-400; }
+      .th { @apply px-4 py-3 text-left font-semibold text-slate-400 whitespace-nowrap; }
+      .td { @apply px-4 py-3 whitespace-nowrap; }
+      .pill { @apply inline-block rounded-full border px-2.5 py-0.5 text-xs font-bold; }
+    }
+    .snav[aria-selected="true"] { background: #1e293b; color: #fbbf24; }
+    .mnav { border-bottom: 2px solid transparent; }
+    .mnav[aria-selected="true"] { border-color: #fbbf24; color: #fbbf24; }
+    @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+  </style>
+</head>
+<body class="min-h-screen bg-slate-950 font-sans text-slate-100 antialiased">
+
+  <!-- Sidebar (desktop) -->
+  <aside class="fixed inset-y-0 left-0 z-20 hidden w-60 flex-col border-r border-slate-800 bg-slate-900 p-4 md:flex">
+    <p class="text-xl font-extrabold text-amber-400">SenaMatch</p>
+    <p class="mb-6 text-sm text-slate-400">Painel administrativo</p>
+    <nav class="space-y-1" role="tablist" aria-orientation="vertical" aria-label="Seções do painel" id="nav-lateral">
+      <button type="button" role="tab" data-aba="dashboard" class="snav flex min-h-[48px] w-full items-center rounded-xl px-3 text-left text-sm font-semibold text-slate-300 hover:bg-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-400">Dashboard</button>
+      <button type="button" role="tab" data-aba="estoque" class="snav flex min-h-[48px] w-full items-center rounded-xl px-3 text-left text-sm font-semibold text-slate-300 hover:bg-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-400">Estoque de lotes</button>
+      <button type="button" role="tab" data-aba="clientes" class="snav flex min-h-[48px] w-full items-center rounded-xl px-3 text-left text-sm font-semibold text-slate-300 hover:bg-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-400">Clientes &amp; licenças</button>
+      <button type="button" role="tab" data-aba="sorteios" class="snav flex min-h-[48px] w-full items-center rounded-xl px-3 text-left text-sm font-semibold text-slate-300 hover:bg-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-400">Central de sorteios</button>
+    </nav>
+  </aside>
+
+  <!-- Menu superior (mobile) -->
+  <header class="sticky top-0 z-20 border-b border-slate-800 bg-slate-950/95 pt-[env(safe-area-inset-top)] backdrop-blur md:hidden">
+    <div class="px-4 pt-3">
+      <p class="text-xl font-extrabold text-amber-400">SenaMatch <span class="text-sm font-semibold text-slate-400">Admin</span></p>
+      <nav class="mt-2 grid grid-cols-4" role="tablist" aria-label="Seções do painel" id="nav-topo">
+        <button type="button" role="tab" data-aba="dashboard" class="mnav min-h-[48px] text-xs font-semibold text-slate-400">Dashboard</button>
+        <button type="button" role="tab" data-aba="estoque" class="mnav min-h-[48px] text-xs font-semibold text-slate-400">Estoque</button>
+        <button type="button" role="tab" data-aba="clientes" class="mnav min-h-[48px] text-xs font-semibold text-slate-400">Clientes</button>
+        <button type="button" role="tab" data-aba="sorteios" class="mnav min-h-[48px] text-xs font-semibold text-slate-400">Sorteios</button>
+      </nav>
+    </div>
+  </header>
+
+  <main class="px-4 py-5 pb-[calc(2rem+env(safe-area-inset-bottom))] md:ml-60 md:px-8">
+    <div class="mx-auto max-w-5xl">
+
+      <!-- DASHBOARD -->
+      <section id="aba-dashboard" role="tabpanel" class="hidden space-y-5">
+        <h1 class="text-lg font-extrabold">Visão geral</h1>
+        <div id="dash-cards" class="grid grid-cols-2 gap-3 lg:grid-cols-4"></div>
+        <div class="card">
+          <h2 class="mb-3 text-base font-semibold">Últimas vendas</h2>
+          <div class="overflow-x-auto">
+            <table class="w-full min-w-[520px] text-sm">
+              <thead><tr><th class="th">Cliente</th><th class="th">Lote</th><th class="th">Valor</th><th class="th">Data</th><th class="th">Envio do link</th></tr></thead>
+              <tbody id="dash-vendas"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="card border-amber-400/40">
+          <h2 class="mb-3 text-base font-semibold">Próximo concurso da Mega-Sena</h2>
+          <dl class="grid grid-cols-1 gap-3 text-sm sm:grid-cols-3">
+            <div><dt class="text-slate-400">Concurso</dt><dd class="text-xl font-extrabold text-amber-400">2801</dd></div>
+            <div><dt class="text-slate-400">Sorteio</dt><dd class="text-xl font-extrabold">29/09/2026</dd></div>
+            <div><dt class="text-slate-400">Prêmio estimado</dt><dd class="text-xl font-extrabold text-emerald-400">R$ 45.000.000,00</dd></div>
+          </dl>
+          <p class="mt-3 text-xs text-slate-500">Dados de demonstração. Confirme número, data e prêmio no site oficial da Caixa.</p>
+        </div>
+      </section>
+
+      <!-- ESTOQUE -->
+      <section id="aba-estoque" role="tabpanel" class="hidden space-y-4">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <h1 class="text-lg font-extrabold">Estoque de lotes</h1>
+          <button type="button" id="btn-novo-lote" class="btn-p w-full sm:w-auto">+ Gerar novo lote de 64 jogos</button>
+        </div>
+        <div class="card overflow-x-auto p-0">
+          <table class="w-full min-w-[700px] text-sm">
+            <thead><tr><th class="th">Lote</th><th class="th">Data</th><th class="th">Status</th><th class="th">Cliente vinculado</th><th class="th">Ações</th></tr></thead>
+            <tbody id="tab-lotes"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- CLIENTES -->
+      <section id="aba-clientes" role="tabpanel" class="hidden space-y-5">
+        <h1 class="text-lg font-extrabold">Clientes &amp; licenças</h1>
+        <form id="form-cliente" class="card space-y-3" novalidate>
+          <h2 class="text-base font-semibold">Cadastrar cliente</h2>
+          <div class="grid gap-3 sm:grid-cols-3">
+            <div><label for="cli-nome" class="lbl">Nome</label><input id="cli-nome" class="inp" autocomplete="off" maxlength="80"></div>
+            <div><label for="cli-zap" class="lbl">WhatsApp (com DDD)</label><input id="cli-zap" class="inp" type="tel" inputmode="tel" placeholder="(86) 99999-9999" autocomplete="off"></div>
+            <div><label for="cli-lote" class="lbl">Lote disponível</label><select id="cli-lote" class="inp"></select></div>
+          </div>
+          <p id="cli-erro" class="hidden text-sm text-red-400" role="alert"></p>
+          <button type="submit" class="btn-p w-full sm:w-auto">Cadastrar e vincular lote</button>
+        </form>
+        <div class="card">
+          <label for="cli-busca" class="lbl">Buscar cliente por nome</label>
+          <input id="cli-busca" type="search" class="inp mb-4" placeholder="Ex: Ana" autocomplete="off">
+          <ul id="lista-clientes" class="grid gap-3 md:grid-cols-2"></ul>
+        </div>
+      </section>
+
+      <!-- SORTEIOS -->
+      <section id="aba-sorteios" role="tabpanel" class="hidden space-y-5">
+        <h1 class="text-lg font-extrabold">Central de sorteios</h1>
+        <form id="form-sorteio" class="card space-y-4" novalidate>
+          <div class="max-w-xs"><label for="sor-conc" class="lbl">Número do concurso</label><input id="sor-conc" class="inp" type="number" inputmode="numeric" min="1" placeholder="Ex: 2801"></div>
+          <fieldset>
+            <legend class="lbl">Dezenas sorteadas (1 a 60, sem repetir)</legend>
+            <div class="grid grid-cols-3 gap-2 sm:grid-cols-6" id="dezenas"></div>
+          </fieldset>
+          <p id="sor-erro" class="hidden text-sm text-red-400" role="alert"></p>
+          <button type="submit" class="btn-p w-full sm:w-auto">Executar varredura geral</button>
+        </form>
+        <div id="sor-resultado" class="hidden space-y-4" aria-live="polite"></div>
+      </section>
+
+    </div>
+  </main>
+
+  <!-- Modal de confirmação -->
+  <div id="modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/80 p-4" role="dialog" aria-modal="true" aria-labelledby="modal-titulo">
+    <div class="w-full max-w-md rounded-2xl border border-slate-700 bg-slate-900 p-5">
+      <h2 id="modal-titulo" class="text-lg font-extrabold">Gerar novo lote?</h2>
+      <p class="mt-2 text-sm text-slate-300" id="modal-texto"></p>
+      <div class="mt-5 grid grid-cols-2 gap-2">
+        <button type="button" id="modal-cancelar" class="btn-s text-slate-200">Cancelar</button>
+        <button type="button" id="modal-confirmar" class="btn-p">Gerar lote</button>
+      </div>
+    </div>
+  </div>
+
+  <p id="toast" role="status" aria-live="polite" class="pointer-events-none fixed bottom-[calc(1rem+env(safe-area-inset-bottom))] left-1/2 z-50 -translate-x-1/2 rounded-xl border border-emerald-500/60 bg-emerald-950 px-4 py-2 text-sm font-semibold text-emerald-200 opacity-0 transition-opacity duration-200"></p>
+
+<script>
+(() => {
+  'use strict';
+
+  /* ================= CONFIG E UTILITÁRIOS ================= */
+  const PRECO = 300, TOTAL = 64, KEY = 'senamatch:admin:v1';
+  const FAIXAS = { 4: 'Quadra', 5: 'Quina', 6: 'Sena' };
+  const JOGOS_DEMO = { 13: [5, 17, 28, 34, 49, 55], 41: [8, 12, 23, 34, 41, 55] }; // igual ao index.html
+  const NOMES = ['Ana Souza','Bruno Lima','Carla Mendes','Diego Rocha','Elaine Costa','Fábio Alves','Gisele Nunes','Heitor Dias','Iara Santos','João Pereira','Karina Melo','Lucas Freitas','Marta Oliveira','Nelson Barros','Olívia Ramos','Paulo Teixeira','Queila Moura','Rafael Cunha'];
+  const $ = (id) => document.getElementById(id);
+  const pad = (n) => String(n).padStart(2, '0');
+  const fmt = (d) => d.map(pad).join(' - ');
+  const brl = (v) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const fmtZap = (z) => { const d = z.length > 11 ? z.slice(-11) : z; return `(${d.slice(0, 2)}) ${d.slice(2, d.length - 4)}-${d.slice(-4)}`; };
+
+  // Mesmo algoritmo do index.html: o código do lote gera sempre os mesmos 64 jogos
+  function mulberry32(a) {
+    return () => {
+      a |= 0; a = (a + 0x6D2B79F5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  const cache = new Map();
+  function gerarLote(codigo) {
+    if (cache.has(codigo)) return cache.get(codigo);
+    let semente = 0;
+    for (const c of codigo) semente = (semente * 31 + c.charCodeAt(0)) >>> 0;
+    const rnd = mulberry32(semente);
+    const jogos = Array.from({ length: TOTAL }, (_, i) => {
+      const s = new Set();
+      while (s.size < 6) s.add(Math.floor(rnd() * 60) + 1);
+      return JOGOS_DEMO[i] || [...s].sort((a, b) => a - b);
+    });
+    cache.set(codigo, jogos);
+    return jogos;
+  }
+
+  /* ================= ESTADO ================= */
+  const codigoLote = (n) => `LOTO-2026-${String(n).padStart(3, '0')}`;
+  function semear() {
+    const lotes = [], clientes = [];
+    for (let i = 1; i <= 24; i++) {
+      const vendido = i <= 18;
+      lotes.push({ codigo: codigoLote(i), data: `${pad(i + 3)}/09/2026`, cliente: vendido ? i : null });
+      if (vendido) clientes.push({ id: i, nome: NOMES[i - 1], zap: '869' + String(90000000 + i * 311957), enviado: i < 16 });
+    }
+    return { lotes, clientes };
+  }
+  let st = null;
+  try { st = JSON.parse(localStorage.getItem(KEY)); } catch { /* ignora */ }
+  if (!st || !Array.isArray(st.lotes) || !Array.isArray(st.clientes)) st = semear();
+  const salvar = () => { try { localStorage.setItem(KEY, JSON.stringify(st)); } catch { /* ignora */ } };
+  const clientePorId = (id) => st.clientes.find((c) => c.id === id);
+  const lotePorCliente = (id) => st.lotes.find((l) => l.cliente === id);
+
+  /* ================= FEEDBACK ================= */
+  let tToast;
+  function toast(msg) {
+    const t = $('toast');
+    t.textContent = msg; t.classList.remove('opacity-0');
+    clearTimeout(tToast); tToast = setTimeout(() => t.classList.add('opacity-0'), 2000);
+  }
+  async function copiar(texto) {
+    try { await navigator.clipboard.writeText(texto); return true; }
+    catch {
+      const ta = document.createElement('textarea');
+      ta.value = texto; ta.setAttribute('readonly', '');
+      ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0';
+      document.body.appendChild(ta); ta.select();
+      let ok = false;
+      try { ok = document.execCommand('copy'); } catch { /* ignora */ }
+      ta.remove(); return ok;
+    }
+  }
+  const linkLote = (cod) => new URL('index.html?lote=' + encodeURIComponent(cod), location.href).href;
+  function baixarTxt(cod) {
+    const corpo = gerarLote(cod).map((d, i) => `Jogo ${pad(i + 1)}: ${fmt(d)}`).join('\n');
+    const url = URL.createObjectURL(new Blob([`Lote #${cod}\n\n${corpo}\n`], { type: 'text/plain;charset=utf-8' }));
+    const a = document.createElement('a');
+    a.href = url; a.download = `senamatch-${cod.toLowerCase()}.txt`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  /* ================= ABAS ================= */
+  const ABAS = ['dashboard', 'estoque', 'clientes', 'sorteios'];
+  function irParaAba(id) {
+    ABAS.forEach((a) => {
+      const on = a === id;
+      $('aba-' + a).classList.toggle('hidden', !on);
+      document.querySelectorAll(`[data-aba="${a}"]`).forEach((b) => b.setAttribute('aria-selected', String(on)));
+    });
+    window.scrollTo({ top: 0 });
+  }
+  document.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-aba]');
+    if (b) irParaAba(b.dataset.aba);
+  });
+
+  /* ================= RENDER ================= */
+  const pillEnvio = (ok) => ok
+    ? '<span class="pill border-emerald-500/40 bg-emerald-500/15 text-emerald-300">Enviado</span>'
+    : '<span class="pill border-amber-400/40 bg-amber-400/15 text-amber-300">Pendente</span>';
+
+  function renderDash() {
+    const vendidos = st.lotes.filter((l) => l.cliente !== null).length;
+    const cards = [
+      ['Total de lotes', st.lotes.length, 'text-slate-100'],
+      ['Lotes vendidos', vendidos, 'text-emerald-400'],
+      ['Faturamento', brl(vendidos * PRECO), 'text-amber-400'],
+      ['Clientes ativos', st.clientes.length, 'text-slate-100'],
+    ];
+    $('dash-cards').innerHTML = cards.map(([r, v, cor]) =>
+      `<div class="card"><p class="text-sm text-slate-400">${r}</p><p class="mt-1 text-xl font-extrabold ${cor}">${v}</p></div>`).join('');
+    const ult = st.clientes.slice(-6).reverse();
+    $('dash-vendas').innerHTML = ult.length ? ult.map((c) => {
+      const l = lotePorCliente(c.id);
+      return `<tr class="border-t border-slate-800"><td class="td font-semibold">${esc(c.nome)}</td><td class="td">#${l ? l.codigo : '—'}</td><td class="td">${brl(PRECO)}</td><td class="td">${l ? l.data : '—'}</td><td class="td">${pillEnvio(c.enviado)}</td></tr>`;
+    }).join('') : '<tr><td class="td text-slate-400" colspan="5">Nenhuma venda registrada. Cadastre um cliente na aba Clientes.</td></tr>';
+  }
+
+  function renderEstoque() {
+    $('tab-lotes').innerHTML = st.lotes.map((l) => {
+      const c = l.cliente !== null ? clientePorId(l.cliente) : null;
+      const pill = c
+        ? '<span class="pill border-emerald-500/40 bg-emerald-500/15 text-emerald-300">Atribuído</span>'
+        : '<span class="pill border-amber-400/40 bg-amber-400/15 text-amber-300">Disponível</span>';
+      return `<tr class="border-t border-slate-800"><td class="td font-semibold">#${l.codigo}</td><td class="td">${l.data}</td><td class="td">${pill}</td>
+        <td class="td ${c ? '' : 'text-slate-500'}">${c ? esc(c.nome) : '—'}</td>
+        <td class="td"><div class="flex gap-2">
+          <button type="button" class="btn-s" data-act="link" data-cod="${l.codigo}">Copiar link de acesso</button>
+          <button type="button" class="btn-s" data-act="txt" data-cod="${l.codigo}">Baixar TXT</button></div></td></tr>`;
+    }).join('');
+  }
+
+  function renderSelectLotes() {
+    const livres = st.lotes.filter((l) => l.cliente === null);
+    $('cli-lote').innerHTML = livres.length
+      ? livres.map((l) => `<option value="${l.codigo}">#${l.codigo}</option>`).join('')
+      : '<option value="">Nenhum lote disponível</option>';
+  }
+
+  function renderClientes() {
+    const q = $('cli-busca').value.trim().toLowerCase();
+    const lista = st.clientes.filter((c) => c.nome.toLowerCase().includes(q));
+    $('lista-clientes').innerHTML = lista.length ? lista.map((c) => {
+      const l = lotePorCliente(c.id);
+      return `<li class="rounded-2xl border border-slate-800 bg-slate-950 p-4">
+        <div class="flex items-start justify-between gap-2"><div><p class="font-semibold">${esc(c.nome)}</p>
+          <p class="text-sm text-slate-400">${fmtZap(c.zap)} · Lote #${l ? l.codigo : '—'}</p></div>${pillEnvio(c.enviado)}</div>
+        <button type="button" class="btn-p mt-3 w-full" data-act="zap" data-id="${c.id}">Enviar link pelo WhatsApp</button></li>`;
+    }).join('') : `<li class="text-sm text-slate-400">${q ? 'Nenhum cliente encontrado para essa busca.' : 'Nenhum cliente cadastrado.'}</li>`;
+  }
+
+  const render = () => { renderDash(); renderEstoque(); renderSelectLotes(); renderClientes(); };
+
+  /* ================= AÇÕES: ESTOQUE E CLIENTES ================= */
+  document.addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-act]');
+    if (!b) return;
+    const { act, cod, id } = b.dataset;
+    if (act === 'link') toast(await copiar(linkLote(cod)) ? 'Link copiado' : 'Não foi possível copiar');
+    if (act === 'txt') baixarTxt(cod);
+    if (act === 'zap') {
+      const c = clientePorId(Number(id)), l = lotePorCliente(c.id);
+      const msg = `Olá, ${c.nome.split(' ')[0]}! Seu lote ${l.codigo} do SenaMatch está pronto. Acesse: ${linkLote(l.codigo)}`;
+      const num = c.zap.length <= 11 ? '55' + c.zap : c.zap;
+      c.enviado = true; salvar(); render();
+      window.open(`https://wa.me/${num}?text=${encodeURIComponent(msg)}`, '_blank', 'noopener');
+    }
+  });
+  $('cli-busca').addEventListener('input', renderClientes);
+
+  $('form-cliente').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const nome = $('cli-nome').value.trim(), zap = $('cli-zap').value.replace(/\D/g, ''), cod = $('cli-lote').value;
+    const erro = $('cli-erro');
+    let msg = '';
+    if (nome.length < 2) msg = 'Informe o nome do cliente.';
+    else if (!/^(55)?\d{10,11}$/.test(zap)) msg = 'Informe o WhatsApp com DDD, por exemplo (86) 99999-9999.';
+    else if (!st.lotes.some((l) => l.codigo === cod && l.cliente === null)) msg = 'Selecione um lote disponível. Se não houver, gere um novo na aba Estoque.';
+    erro.textContent = msg; erro.classList.toggle('hidden', !msg);
+    if (msg) return;
+    const id = Math.max(0, ...st.clientes.map((c) => c.id)) + 1;
+    st.clientes.push({ id, nome, zap, enviado: false });
+    st.lotes.find((l) => l.codigo === cod).cliente = id;
+    salvar(); render(); e.target.reset(); toast('Cliente cadastrado e lote vinculado');
+  });
+
+  /* ================= MODAL: NOVO LOTE ================= */
+  let foco = null;
+  const modal = $('modal');
+  const proximoCodigo = () => codigoLote(st.lotes.length + 1);
+  function abrirModal() {
+    foco = document.activeElement;
+    $('modal-texto').textContent = `Vai ser criado o lote #${proximoCodigo()} com ${TOTAL} jogos de 6 dezenas, com status Disponível.`;
+    modal.classList.remove('hidden'); modal.classList.add('flex');
+    $('modal-confirmar').focus();
+  }
+  function fecharModal() {
+    modal.classList.add('hidden'); modal.classList.remove('flex');
+    if (foco) foco.focus();
+  }
+  $('btn-novo-lote').addEventListener('click', abrirModal);
+  $('modal-cancelar').addEventListener('click', fecharModal);
+  modal.addEventListener('click', (e) => { if (e.target === modal) fecharModal(); });
+  document.addEventListener('keydown', (e) => {
+    if (modal.classList.contains('hidden')) return;
+    if (e.key === 'Escape') fecharModal();
+    if (e.key === 'Tab') {   // mantém o foco dentro do modal
+      const bs = [$('modal-cancelar'), $('modal-confirmar')];
+      const i = bs.indexOf(document.activeElement);
+      if (e.shiftKey && i <= 0) { e.preventDefault(); bs[1].focus(); }
+      else if (!e.shiftKey && i === 1) { e.preventDefault(); bs[0].focus(); }
+    }
+  });
+  $('modal-confirmar').addEventListener('click', () => {
+    const cod = proximoCodigo(), d = new Date();
+    st.lotes.push({ codigo: cod, data: `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`, cliente: null });
+    salvar(); render(); fecharModal(); toast(`Lote #${cod} gerado`);
+  });
+
+  /* ================= CENTRAL DE SORTEIOS ================= */
+  $('dezenas').innerHTML = Array.from({ length: 6 }, (_, i) =>
+    `<div><label for="dz-${i}" class="sr-only">Dezena ${i + 1}</label>
+     <input id="dz-${i}" class="inp dz text-center font-extrabold" type="number" inputmode="numeric" min="1" max="60" placeholder="${pad(i + 1)}"></div>`).join('');
+
+  $('form-sorteio').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const conc = Number($('sor-conc').value);
+    const dz = [...document.querySelectorAll('.dz')].map((i) => Number(i.value));
+    const erro = $('sor-erro');
+    let msg = '';
+    if (!Number.isInteger(conc) || conc < 1) msg = 'Informe o número do concurso.';
+    else if (dz.some((n) => !Number.isInteger(n) || n < 1 || n > 60)) msg = 'Preencha as 6 dezenas com números de 1 a 60.';
+    else if (new Set(dz).size !== 6) msg = 'As dezenas não podem se repetir.';
+    erro.textContent = msg; erro.classList.toggle('hidden', !msg);
+    if (msg) return;
+
+    const sorteadas = new Set(dz);
+    const ativos = st.lotes.filter((l) => l.cliente !== null);
+    const cont = { 4: 0, 5: 0, 6: 0 }, achados = [];
+    ativos.forEach((l) => gerarLote(l.codigo).forEach((jogo, i) => {
+      const hits = jogo.filter((n) => sorteadas.has(n));
+      if (hits.length >= 4) {
+        cont[hits.length]++;
+        achados.push({ cod: l.codigo, cli: clientePorId(l.cliente), jogo: i + 1, qtd: hits.length });
+      }
+    }));
+    achados.sort((a, b) => b.qtd - a.qtd);
+
+    const metrica = (r, v, cor = 'text-slate-100') =>
+      `<div class="card"><p class="text-sm text-slate-400">${r}</p><p class="mt-1 text-xl font-extrabold ${cor}">${v}</p></div>`;
+    const box = $('sor-resultado');
+    box.classList.remove('hidden');
+    box.innerHTML = `
+      <p class="rounded-xl border ${achados.length ? 'border-amber-400/50 bg-amber-400/10 text-amber-200' : 'border-slate-700 bg-slate-900 text-slate-300'} px-4 py-3 text-sm font-semibold">
+        Concurso ${conc} · ${fmt(dz)} · ${achados.length ? `${achados.length} ${achados.length > 1 ? 'bilhetes premiados' : 'bilhete premiado'}` : 'nenhum bilhete premiado'}</p>
+      <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        ${metrica('Lotes analisados', ativos.length)}
+        ${metrica('Jogos analisados', ativos.length * TOTAL)}
+        ${metrica('Bilhetes premiados', achados.length, 'text-amber-400')}
+        ${metrica('Quadras · Quinas · Senas', `${cont[4]} · ${cont[5]} · ${cont[6]}`, 'text-emerald-400')}
+      </div>
+      ${achados.length ? `<div class="card max-h-96 overflow-auto p-0"><table class="w-full min-w-[480px] text-sm">
+        <thead class="sticky top-0 bg-slate-900"><tr><th class="th">Lote</th><th class="th">Cliente</th><th class="th">Jogo</th><th class="th">Faixa</th></tr></thead>
+        <tbody>${achados.map((a) => `<tr class="border-t border-slate-800"><td class="td">#${a.cod}</td><td class="td">${esc(a.cli ? a.cli.nome : '—')}</td><td class="td">#${a.jogo}</td><td class="td font-semibold text-amber-400">${FAIXAS[a.qtd]}</td></tr>`).join('')}</tbody></table></div>` : ''}
+      <p class="text-xs text-slate-500">Varredura feita nos lotes com status Atribuído. Lotes disponíveis não entram na conferência.</p>`;
+  });
+
+  /* ================= INICIALIZAÇÃO ================= */
+  render();
+  irParaAba('dashboard');
+})();
+</script>
+</body>
+</html>
