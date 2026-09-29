@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#020617">
+  <title>SenaMatch · Área do Cliente</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = { theme: { extend: { fontFamily: { sans: ['"Bricolage Grotesque"', 'system-ui', 'sans-serif'] } } } };
+  </script>
+  <style>
+    .switch-track { transition: background-color .2s; }
+    .switch-knob { transition: transform .2s; }
+    [aria-checked="true"] .switch-track { background-color: #059669; }
+    [aria-checked="true"] .switch-knob { transform: translateX(20px); }
+    @media (prefers-reduced-motion: reduce) { .switch-track, .switch-knob { transition: none; } }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 font-sans antialiased min-h-screen">
+
+  <!-- Cabeçalho + navegação por abas -->
+  <header class="sticky top-0 z-10 border-b border-slate-800 bg-slate-950/95 backdrop-blur pt-[env(safe-area-inset-top)]">
+    <div class="mx-auto max-w-5xl px-4 pt-3">
+      <div class="flex items-baseline justify-between gap-3">
+        <p class="text-xl font-extrabold text-amber-400">SenaMatch</p>
+        <p class="text-sm text-slate-400" id="lote-codigo">Lote #Sena-2026-004</p>
+      </div>
+      <nav class="mt-2 grid grid-cols-3" role="tablist" aria-label="Seções da área do cliente">
+        <button type="button" role="tab" id="tab-jogos" data-aba="jogos" aria-controls="aba-jogos"
+          class="tab min-h-[48px] border-b-2 px-1 text-sm font-semibold transition-all duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-400">Meus jogos</button>
+        <button type="button" role="tab" id="tab-conferencia" data-aba="conferencia" aria-controls="aba-conferencia"
+          class="tab min-h-[48px] border-b-2 px-1 text-sm font-semibold transition-all duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-400">Conferência</button>
+        <button type="button" role="tab" id="tab-simulador" data-aba="simulador" aria-controls="aba-simulador"
+          class="tab min-h-[48px] border-b-2 px-1 text-sm font-semibold transition-all duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-400">Simulador</button>
+      </nav>
+    </div>
+  </header>
+
+  <main class="mx-auto max-w-5xl px-4 py-5 pb-[calc(2rem+env(safe-area-inset-bottom))]">
+
+    <!-- ABA 1: MEUS JOGOS -->
+    <section id="aba-jogos" role="tabpanel" aria-labelledby="tab-jogos" class="hidden space-y-4">
+      <div class="space-y-3">
+        <div class="flex items-baseline justify-between gap-3">
+          <h1 class="text-lg font-extrabold">Meus jogos</h1>
+          <p class="text-sm text-slate-300" id="progresso-texto" aria-live="polite">0 / 64 jogos apostados</p>
+        </div>
+        <div class="h-3 w-full overflow-hidden rounded-full bg-slate-800" role="progressbar" aria-label="Jogos apostados"
+             aria-valuemin="0" aria-valuemax="64" aria-valuenow="0" id="progresso-barra">
+          <div id="progresso-preenchimento" class="h-full w-0 rounded-full bg-amber-400 transition-all duration-200 motion-reduce:transition-none"></div>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <button id="btn-copiar-todos" type="button"
+            class="min-h-[48px] rounded-xl bg-emerald-600 px-3 text-sm font-semibold text-white transition-all duration-200 hover:bg-emerald-500 active:scale-[.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-400">Copiar todos os 64 jogos</button>
+          <button id="btn-baixar" type="button"
+            class="min-h-[48px] rounded-xl border border-slate-600 px-3 text-sm font-semibold transition-all duration-200 hover:bg-slate-800 active:scale-[.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-400">Baixar arquivo TXT</button>
+        </div>
+      </div>
+      <p id="mensagem-completo" class="hidden rounded-xl border border-amber-400/40 bg-amber-400/10 px-4 py-3 text-sm text-amber-200">Lote completo: os 64 jogos foram apostados.</p>
+      <ul id="lista-jogos" class="grid grid-cols-1 gap-3 md:grid-cols-2"></ul>
+    </section>
+
+    <!-- ABA 2: CONFERÊNCIA & RESULTADOS -->
+    <section id="aba-conferencia" role="tabpanel" aria-labelledby="tab-conferencia" class="hidden space-y-6">
+      <h2 class="text-lg font-extrabold">Conferência e resultados</h2>
+
+      <div class="rounded-2xl border border-amber-400/40 bg-slate-900 p-4">
+        <p class="text-sm text-slate-400">Último sorteio oficial</p>
+        <p class="text-xl font-extrabold text-amber-400" id="ultimo-titulo"></p>
+        <div class="my-4 flex flex-wrap gap-2" id="ultimo-bolas"></div>
+        <button id="btn-conferir" type="button"
+          class="min-h-[48px] w-full rounded-xl bg-emerald-600 px-4 text-sm font-semibold text-white transition-all duration-200 hover:bg-emerald-500 active:scale-[.98] sm:w-auto focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-400">Conferir meu lote</button>
+        <div id="resultado-conferencia" class="mt-4 hidden space-y-3" aria-live="polite"></div>
+      </div>
+
+      <div class="rounded-2xl border border-slate-800 bg-slate-900 p-4">
+        <h3 class="mb-3 text-base font-semibold">Buscar concurso anterior</h3>
+        <form id="form-busca" class="flex gap-2">
+          <label for="busca-numero" class="sr-only">Número do concurso</label>
+          <input id="busca-numero" type="number" inputmode="numeric" placeholder="Ex: 2795"
+            class="min-h-[48px] w-full rounded-xl border border-slate-600 bg-slate-950 px-3 text-base focus:border-emerald-500 focus:outline-none">
+          <button type="submit"
+            class="min-h-[48px] rounded-xl border border-emerald-600 px-5 text-sm font-semibold text-emerald-400 transition-all duration-200 hover:bg-emerald-600 hover:text-white active:scale-[.98]">Buscar</button>
+        </form>
+        <div id="resultado-busca" class="mt-4" aria-live="polite"></div>
+      </div>
+      <p class="text-xs text-slate-500">Protótipo com sorteios de demonstração (concursos 2788 a 2800). Não são resultados oficiais.</p>
+    </section>
+
+    <!-- ABA 3: SIMULADOR ESTRATÉGICO -->
+    <section id="aba-simulador" role="tabpanel" aria-labelledby="tab-simulador" class="hidden space-y-5">
+      <h2 class="text-lg font-extrabold">Simulador estratégico</h2>
+      <p class="text-sm text-slate-300">Veja como o seu lote atual de 64 jogos teria se saído nos concursos recentes.</p>
+
+      <div role="radiogroup" aria-label="Quantidade de concursos" class="grid grid-cols-3 gap-2" id="sim-opcoes">
+        <button type="button" role="radio" data-n="5"  class="sim-op min-h-[48px] rounded-xl border px-2 text-sm font-semibold transition-all duration-200">Últimos 5</button>
+        <button type="button" role="radio" data-n="10" class="sim-op min-h-[48px] rounded-xl border px-2 text-sm font-semibold transition-all duration-200">Últimos 10</button>
+        <button type="button" role="radio" data-n="13" class="sim-op min-h-[48px] rounded-xl border px-2 text-sm font-semibold transition-all duration-200">Últimos 13</button>
+      </div>
+      <button id="btn-simular" type="button"
+        class="min-h-[48px] w-full rounded-xl bg-emerald-600 px-4 text-sm font-semibold text-white transition-all duration-200 hover:bg-emerald-500 active:scale-[.98] sm:w-auto focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-400">Simular desempenho</button>
+
+      <div id="resultado-simulacao" class="hidden space-y-4" aria-live="polite"></div>
+    </section>
+  </main>
+
+  <p id="aviso-status" class="sr-only" role="status" aria-live="polite"></p>
+
+<script>
+(() => {
+  'use strict';
+
+  /* ================= DADOS MOCKADOS ================= */
+  const CODIGO_LOTE = 'Sena-2026-004';
+  const TOTAL = 64;
+  const PRECO_JOGO = 6;                                   // R$ por jogo (fictício)
+  const PREMIOS = { 4: 1100, 5: 55000, 6: 5000000 };      // R$ por acerto (fictício)
+  const FAIXAS = { 4: 'Quadra', 5: 'Quina', 6: 'Sena' };
+
+  const CONCURSO_ATUAL = 2800;
+  const SORTEIO_ATUAL = [5, 12, 28, 34, 41, 55];
+  const DATAS = ['26/09/2026','24/09/2026','22/09/2026','19/09/2026','17/09/2026','15/09/2026','12/09/2026',
+                 '10/09/2026','08/09/2026','05/09/2026','03/09/2026','01/09/2026','29/08/2026']; // 2800 → 2788
+  // Jogos fixos do lote que fazem 4 acertos no concurso 2800 (demonstra a conferência)
+  const JOGOS_DEMO = { 13: [5, 17, 28, 34, 49, 55], 41: [8, 12, 23, 34, 41, 55] };
+  // Concursos passados em que um jogo do lote (índice) faz 4 acertos (demonstra o simulador)
+  const PLANTIOS = { 2799: 7, 2796: 52, 2794: 3, 2791: 29 };
+
+  /* ================= UTILITÁRIOS ================= */
+  const $ = (id) => document.getElementById(id);
+  const pad = (n) => String(n).padStart(2, '0');
+  const formatar = (d) => d.map(pad).join(' - ');
+  const brl = (v) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  const pct = (v) => `${v >= 0 ? '+' : ''}${v.toFixed(1).replace('.', ',')}%`;
+  const listaPt = (xs) => xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join(', ')} e ${xs[xs.length - 1]}`;
+  const guardar = (k, v) => { try { localStorage.setItem(k, v); } catch { /* ignora */ } };
+  const ler = (k) => { try { return localStorage.getItem(k); } catch { return null; } };
+
+  function mulberry32(a) {
+    return () => {
+      a |= 0; a = (a + 0x6D2B79F5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  /* ================= LOTE E SORTEIOS ================= */
+  function gerarLote() {
+    let semente = 0;
+    for (const c of CODIGO_LOTE) semente = (semente * 31 + c.charCodeAt(0)) >>> 0;
+    const rnd = mulberry32(semente);   // determinístico: os mesmos jogos após recarregar
+    return Array.from({ length: TOTAL }, (_, i) => {
+      const dezenas = new Set();
+      while (dezenas.size < 6) dezenas.add(Math.floor(rnd() * 60) + 1);
+      return JOGOS_DEMO[i] || [...dezenas].sort((a, b) => a - b);
+    });
+  }
+  const jogos = gerarLote();
+
+  function sorteioMock(conc) {
+    if (conc === CONCURSO_ATUAL) return SORTEIO_ATUAL;
+    const rnd = mulberry32(conc * 7919);
+    const alvo = PLANTIOS[conc];
+    const s = new Set();
+    if (alvo !== undefined) {
+      const base = [...jogos[alvo]];
+      for (let i = base.length - 1; i > 0; i--) {           // Fisher-Yates
+        const j = Math.floor(rnd() * (i + 1));
+        [base[i], base[j]] = [base[j], base[i]];
+      }
+      base.slice(0, 4).forEach((n) => s.add(n));
+    }
+    while (s.size < 6) {
+      const n = Math.floor(rnd() * 60) + 1;
+      if (alvo !== undefined && jogos[alvo].includes(n)) continue;
+      s.add(n);
+    }
+    return [...s].sort((a, b) => a - b);
+  }
+  const HISTORICO = DATAS.map((data, k) => {
+    const numero = CONCURSO_ATUAL - k;
+    return { numero, data, dezenas: sorteioMock(numero) };
+  });
+  const concursoPorNumero = (n) => HISTORICO.find((c) => c.numero === n);
+
+  // Compara o sorteio com os 64 jogos; devolve apenas os jogos com 4+ acertos
+  function conferir(sorteio) {
+    const sorteadas = new Set(sorteio);
+    return jogos
+      .map((d, i) => ({ i, acertos: d.filter((n) => sorteadas.has(n)) }))
+      .filter((r) => r.acertos.length >= 4)
+      .map((r) => ({ i: r.i, qtd: r.acertos.length, acertos: new Set(r.acertos) }));
+  }
+
+  function resumoConferencia(premiados) {
+    if (!premiados.length) return 'Nenhum jogo premiado neste concurso.';
+    const partes = [6, 5, 4].map((q) => {
+      const grupo = premiados.filter((p) => p.qtd === q);
+      if (!grupo.length) return null;
+      const n = grupo.length, nome = FAIXAS[q];
+      return `${n} ${n > 1 ? nome + 's encontradas' : nome + ' encontrada'} (${n > 1 ? 'Jogos' : 'Jogo'} ${listaPt(grupo.map((p) => '#' + (p.i + 1)))})`;
+    }).filter(Boolean);
+    return `${partes.join('; ')}!`;
+  }
+
+  /* ================= ABAS ================= */
+  const ABAS = ['jogos', 'conferencia', 'simulador'];
+  const TAB_ON = 'border-amber-400 text-amber-400';
+  const TAB_OFF = 'border-transparent text-slate-400 hover:text-slate-200';
+
+  function irParaAba(id) {
+    ABAS.forEach((a) => {
+      const ativa = a === id;
+      const painel = $('aba-' + a), tab = $('tab-' + a);
+      painel.classList.toggle('hidden', !ativa);
+      painel.classList.toggle('block', ativa);
+      tab.setAttribute('aria-selected', String(ativa));
+      tab.className = tab.className.replace(TAB_ON, '').replace(TAB_OFF, '').trim() + ' ' + (ativa ? TAB_ON : TAB_OFF);
+    });
+    guardar('senamatch:aba', id);
+    window.scrollTo({ top: 0 });
+  }
+  document.querySelector('[role="tablist"]').addEventListener('click', (e) => {
+    const tab = e.target.closest('[data-aba]');
+    if (tab) irParaAba(tab.dataset.aba);
+  });
+
+  /* ================= ABA 1: MEUS JOGOS ================= */
+  const KEY = `senamatch:${CODIGO_LOTE}:apostados`;
+  const carregar = () => {
+    try {
+      const l = JSON.parse(ler(KEY) || '[]');
+      return new Set(l.filter((i) => Number.isInteger(i) && i >= 0 && i < TOTAL));
+    } catch { return new Set(); }
+  };
+  const apostados = carregar();
+  const destaques = new Map();   // índice do jogo → { qtd, acertos } (resultado da conferência)
+
+  const CARD_BASE = 'rounded-2xl border p-4 transition-all duration-200 motion-reduce:transition-none';
+  const CARD_OFF = 'border-slate-800 bg-slate-900';
+  const CARD_ON = 'border-emerald-500/60 bg-emerald-950/60';
+  const BOLA_BASE = 'bola flex h-9 w-9 items-center justify-center rounded-full text-sm font-extrabold transition-all duration-200 sm:h-10 sm:w-10 sm:text-base motion-reduce:transition-none';
+  const BOLA_OFF = 'bg-slate-100 text-slate-900';
+  const BOLA_ON = 'bg-emerald-500 text-white';
+  const BOLA_HIT = 'bg-amber-400 text-slate-900 ring-2 ring-amber-200';
+
+  const lista = $('lista-jogos');
+  lista.innerHTML = jogos.map((dezenas, i) => `
+    <li data-i="${i}">
+      <div class="mb-3 flex items-center justify-between gap-2">
+        <h2 class="text-base font-semibold">Jogo ${pad(i + 1)}</h2>
+        <span class="premio hidden rounded-full bg-amber-400 px-2 py-0.5 text-xs font-bold text-slate-900"></span>
+        <span class="status ml-auto text-sm"></span>
+      </div>
+      <div class="mb-4 flex gap-1.5 sm:gap-2" aria-label="Dezenas: ${formatar(dezenas)}">
+        ${dezenas.map((n) => `<span data-n="${n}">${pad(n)}</span>`).join('')}
+      </div>
+      <div class="flex items-center justify-between gap-3">
+        <button type="button" data-copiar
+          class="min-h-[44px] min-w-[110px] rounded-xl border border-slate-600 px-4 text-sm font-semibold text-amber-300 transition-all duration-200 hover:bg-slate-800 active:scale-[.97] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-400">Copiar</button>
+        <button type="button" role="switch" aria-checked="false" data-alternar
+          class="flex min-h-[44px] items-center gap-3 rounded-xl px-2 text-sm font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-400">
+          <span>Já apostei</span>
+          <span class="switch-track relative block h-7 w-12 rounded-full bg-slate-700"><span class="switch-knob absolute left-1 top-1 block h-5 w-5 rounded-full bg-white"></span></span>
+        </button>
+      </div>
+    </li>`).join('');
+
+  function pintarCartao(i) {
+    const card = lista.children[i];
+    const marcado = apostados.has(i), d = destaques.get(i);
+    card.className = `${CARD_BASE} ${marcado ? CARD_ON : CARD_OFF}${d ? ' ring-2 ring-amber-400' : ''}`;
+    card.querySelectorAll('[data-n]').forEach((b) => {
+      const hit = d && d.acertos.has(Number(b.dataset.n));
+      b.className = `${BOLA_BASE} ${hit ? BOLA_HIT : marcado ? BOLA_ON : BOLA_OFF}`;
+    });
+    card.querySelector('[data-alternar]').setAttribute('aria-checked', String(marcado));
+    const st = card.querySelector('.status');
+    st.textContent = marcado ? 'Apostado' : 'Pendente';
+    st.className = `status ml-auto text-sm ${marcado ? 'text-emerald-400' : 'text-slate-400'}`;
+    const p = card.querySelector('.premio');
+    p.classList.toggle('hidden', !d);
+    if (d) p.textContent = FAIXAS[d.qtd];
+  }
+
+  function atualizarProgresso() {
+    const n = apostados.size, p = Math.round((n / TOTAL) * 100);
+    $('progresso-texto').textContent = `${n} / ${TOTAL} jogos apostados`;
+    $('progresso-preenchimento').style.width = `${p}%`;
+    const barra = $('progresso-barra');
+    barra.setAttribute('aria-valuenow', n);
+    barra.setAttribute('aria-valuetext', `${n} de ${TOTAL} jogos apostados (${p}%)`);
+    $('mensagem-completo').classList.toggle('hidden', n !== TOTAL);
+  }
+
+  async function copiarTexto(texto) {
+    try { await navigator.clipboard.writeText(texto); return true; }
+    catch {
+      const ta = document.createElement('textarea');
+      ta.value = texto; ta.setAttribute('readonly', '');
+      ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0';
+      document.body.appendChild(ta); ta.select();
+      let ok = false;
+      try { ok = document.execCommand('copy'); } catch { /* ignora */ }
+      ta.remove();
+      return ok;
+    }
+  }
+  function feedbackBotao(btn, ok, textoOk = 'Copiado!') {
+    const original = btn.dataset.original || btn.textContent.trim();
+    btn.dataset.original = original;
+    btn.textContent = ok ? textoOk : 'Não foi possível copiar';
+    if (ok) btn.classList.add('!bg-emerald-600', '!text-white', '!border-emerald-600');
+    clearTimeout(btn._t);
+    btn._t = setTimeout(() => {
+      btn.textContent = original;
+      btn.classList.remove('!bg-emerald-600', '!text-white', '!border-emerald-600');
+    }, 1500);
+    $('aviso-status').textContent = ok ? textoOk : 'Falha ao copiar';
+  }
+
+  const textoTodos = () => jogos.map((d, i) => `Jogo ${pad(i + 1)}: ${formatar(d)}`).join('\n');
+  function baixarTxt() {
+    const blob = new Blob([`Lote #${CODIGO_LOTE}\n\n${textoTodos()}\n`], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `senamatch-${CODIGO_LOTE.toLowerCase()}.txt`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  lista.addEventListener('click', async (e) => {
+    const card = e.target.closest('[data-i]');
+    if (!card) return;
+    const i = Number(card.dataset.i);
+    const btnCopiar = e.target.closest('[data-copiar]');
+    if (btnCopiar) { feedbackBotao(btnCopiar, await copiarTexto(formatar(jogos[i]))); return; }
+    if (e.target.closest('[data-alternar]')) {
+      apostados.has(i) ? apostados.delete(i) : apostados.add(i);
+      guardar(KEY, JSON.stringify([...apostados]));
+      pintarCartao(i);
+      atualizarProgresso();
+    }
+  });
+  $('btn-copiar-todos').addEventListener('click', async (e) =>
+    feedbackBotao(e.currentTarget, await copiarTexto(textoTodos()), 'Todos copiados!'));
+  $('btn-baixar').addEventListener('click', baixarTxt);
+
+  /* ================= ABA 2: CONFERÊNCIA ================= */
+  const bolaSorteio = (n) =>
+    `<span class="flex h-11 w-11 items-center justify-center rounded-full bg-amber-400 text-base font-extrabold text-slate-900 sm:h-12 sm:w-12">${pad(n)}</span>`;
+
+  $('ultimo-titulo').textContent = `Concurso ${CONCURSO_ATUAL} · ${HISTORICO[0].data}`;
+  $('ultimo-bolas').innerHTML = SORTEIO_ATUAL.map(bolaSorteio).join('');
+
+  function cartaoPremiado(p) {
+    return `<div class="rounded-xl border border-amber-400/50 bg-slate-950 p-3">
+      <p class="mb-2 text-sm font-semibold">Jogo #${p.i + 1} · <span class="text-amber-400">${FAIXAS[p.qtd]}</span></p>
+      <div class="flex gap-1.5">${jogos[p.i].map((n) =>
+        `<span class="flex h-9 w-9 items-center justify-center rounded-full text-sm font-extrabold ${p.acertos.has(n) ? BOLA_HIT : 'bg-slate-700 text-slate-300'}">${pad(n)}</span>`).join('')}</div>
+    </div>`;
+  }
+
+  $('btn-conferir').addEventListener('click', () => {
+    const premiados = conferir(SORTEIO_ATUAL);
+    const anteriores = [...destaques.keys()];
+    destaques.clear();
+    premiados.forEach((p) => destaques.set(p.i, p));
+    new Set([...anteriores, ...destaques.keys()]).forEach(pintarCartao);
+
+    const box = $('resultado-conferencia');
+    box.classList.remove('hidden');
+    box.innerHTML = `
+      <p class="rounded-xl border ${premiados.length ? 'border-amber-400/50 bg-amber-400/10 text-amber-200' : 'border-slate-700 bg-slate-950 text-slate-300'} px-4 py-3 text-sm font-semibold">
+        Resultado da sua conferência: ${resumoConferencia(premiados)}</p>
+      ${premiados.length ? `<div class="grid gap-2 sm:grid-cols-2">${premiados.map(cartaoPremiado).join('')}</div>
+      <button type="button" id="btn-ver-jogos" class="min-h-[44px] rounded-xl border border-slate-600 px-4 text-sm font-semibold text-amber-300 hover:bg-slate-800">Ver nos meus jogos</button>` : ''}`;
+    const ver = $('btn-ver-jogos');
+    if (ver) ver.addEventListener('click', () => {
+      irParaAba('jogos');
+      lista.children[premiados[0].i].scrollIntoView({ block: 'center' });
+    });
+  });
+
+  $('form-busca').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const n = Number($('busca-numero').value);
+    const c = concursoPorNumero(n);
+    const out = $('resultado-busca');
+    if (!c) {
+      out.innerHTML = `<p class="text-sm text-amber-300">Concurso não encontrado. No protótipo, use de ${HISTORICO[HISTORICO.length - 1].numero} a ${CONCURSO_ATUAL}.</p>`;
+      return;
+    }
+    const resumo = resumoConferencia(conferir(c.dezenas));
+    out.innerHTML = `
+      <p class="mb-3 text-sm text-slate-400">Concurso ${c.numero} · ${c.data}</p>
+      <div class="mb-3 flex flex-wrap gap-2">${c.dezenas.map(bolaSorteio).join('')}</div>
+      <p class="text-sm text-slate-300">Seu lote neste concurso: ${resumo}</p>`;
+  });
+
+  /* ================= ABA 3: SIMULADOR ================= */
+  let simN = 10;
+  const SIM_ON = 'border-amber-400 bg-amber-400/10 text-amber-300';
+  const SIM_OFF = 'border-slate-600 text-slate-200 hover:bg-slate-800';
+  function marcarOpcao() {
+    document.querySelectorAll('.sim-op').forEach((b) => {
+      const on = Number(b.dataset.n) === simN;
+      b.setAttribute('aria-checked', String(on));
+      b.className = b.className.replace(SIM_ON, '').replace(SIM_OFF, '').trim() + ' ' + (on ? SIM_ON : SIM_OFF);
+    });
+  }
+  $('sim-opcoes').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-n]');
+    if (b) { simN = Number(b.dataset.n); marcarOpcao(); }
+  });
+
+  const metrica = (rotulo, valor, cor = 'text-slate-100') =>
+    `<div class="rounded-2xl border border-slate-800 bg-slate-900 p-4">
+       <p class="text-sm text-slate-400">${rotulo}</p><p class="mt-1 text-xl font-extrabold ${cor}">${valor}</p></div>`;
+
+  $('btn-simular').addEventListener('click', () => {
+    const conc = HISTORICO.slice(0, simN);
+    const cont = { 4: 0, 5: 0, 6: 0 };
+    conc.forEach((c) => conferir(c.dezenas).forEach((p) => { cont[p.qtd]++; }));
+    const investido = conc.length * TOTAL * PRECO_JOGO;
+    const premios = [4, 5, 6].reduce((s, q) => s + cont[q] * PREMIOS[q], 0);
+    const saldo = premios - investido, roi = (saldo / investido) * 100;
+    const cor = saldo >= 0 ? 'text-emerald-400' : 'text-red-400';
+
+    const box = $('resultado-simulacao');
+    box.classList.remove('hidden');
+    box.innerHTML = `
+      <p class="text-sm text-slate-400">Concursos ${conc[conc.length - 1].numero} a ${conc[0].numero} · ${conc.length} concursos × ${TOTAL} jogos × ${brl(PRECO_JOGO)}</p>
+      <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        ${metrica('Capital investido', brl(investido))}
+        ${metrica('Prêmios resgatados', brl(premios), 'text-amber-400')}
+        ${metrica('Saldo líquido', brl(saldo), cor)}
+        ${metrica('ROI', pct(roi), cor)}
+      </div>
+      <div class="overflow-x-auto rounded-2xl border border-slate-800 bg-slate-900">
+        <table class="w-full min-w-[320px] text-sm">
+          <thead class="text-left text-slate-400"><tr>
+            <th class="px-4 py-3 font-semibold">Faixa</th><th class="px-4 py-3 text-right font-semibold">Acertos</th><th class="px-4 py-3 text-right font-semibold">Prêmios</th></tr></thead>
+          <tbody>${[4, 5, 6].map((q) => `
+            <tr class="border-t border-slate-800"><td class="px-4 py-3">${FAIXAS[q]}s</td>
+              <td class="px-4 py-3 text-right font-semibold">${cont[q]}</td>
+              <td class="px-4 py-3 text-right">${brl(cont[q] * PREMIOS[q])}</td></tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+      <p class="text-xs text-slate-500">Simulação com dados fictícios e prêmios de referência (Quadra ${brl(PREMIOS[4])}, Quina ${brl(PREMIOS[5])}, Sena ${brl(PREMIOS[6])}). Resultados passados não garantem resultados futuros.</p>`;
+  });
+
+  /* ================= INICIALIZAÇÃO ================= */
+  $('lote-codigo').textContent = `Lote #${CODIGO_LOTE}`;
+  jogos.forEach((_, i) => pintarCartao(i));
+  atualizarProgresso();
+  marcarOpcao();
+  const abaSalva = ler('senamatch:aba');
+  irParaAba(ABAS.includes(abaSalva) ? abaSalva : 'jogos');
+})();
+</script>
+</body>
+</html>
