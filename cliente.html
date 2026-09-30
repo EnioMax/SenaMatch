@@ -116,7 +116,9 @@
   'use strict';
 
   /* ================= DADOS MOCKADOS ================= */
-  const CODIGO_LOTE = 'Sena-2026-004';
+  const PARAMS = new URLSearchParams(location.search);
+  const ALF = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+  const CODIGO_LOTE = (PARAMS.get('lote') || 'Sena-2026-004').slice(0, 30);
   const TOTAL = 64;
   const PRECO_JOGO = 6;
   const PREMIOS = { 4: 1100, 5: 55000, 6: 5000000 };
@@ -150,6 +152,12 @@
 
   /* ================= LOTE E SORTEIOS ================= */
   function gerarLote() {
+    const j = PARAMS.get('j') || '';   // jogos vindos do link do gestor
+    if (j.length === TOTAL * 6) {
+      const nums = [...j].map((c) => ALF.indexOf(c) + 1);
+      const grupos = Array.from({ length: TOTAL }, (_, i) => nums.slice(i * 6, i * 6 + 6).sort((a, b) => a - b));
+      if (nums.every((n) => n >= 1 && n <= 60) && grupos.every((g) => new Set(g).size === 6)) return grupos;
+    }
     let semente = 0;
     for (const c of CODIGO_LOTE) semente = (semente * 31 + c.charCodeAt(0)) >>> 0;
     const rnd = mulberry32(semente);

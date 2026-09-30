@@ -40,22 +40,15 @@
         </div>
       </div>
 
-      <!-- Exemplo ilustrativo de conferência -->
-      <div class="rounded-2xl border border-amber-400/40 bg-slate-900 p-5" role="img" aria-label="Exemplo: jogo 14 com quatro acertos, uma quadra, no concurso 2800">
-        <div class="flex items-baseline justify-between gap-3">
-          <p class="text-base font-semibold">Jogo 14</p>
-          <span class="rounded-full bg-amber-400 px-2.5 py-0.5 text-xs font-bold text-slate-900">Quadra</span>
+      <!-- Último sorteio (dados oficiais quando disponíveis) -->
+      <div class="rounded-2xl border border-amber-400/40 bg-slate-900 p-5" role="group" aria-labelledby="ultimo-titulo">
+        <h2 id="ultimo-titulo" class="text-base font-semibold">Último sorteio da Mega-Sena</h2>
+        <div id="ultimo-conteudo" class="mt-4">
+          <p class="text-sm text-slate-300">Não foi possível carregar o último resultado agora. Confira no site oficial da Caixa.</p>
         </div>
-        <div class="mt-4 flex gap-2" aria-hidden="true">
-          <span class="flex h-11 w-11 items-center justify-center rounded-full bg-amber-400 text-base font-extrabold text-slate-900 ring-2 ring-amber-200">05</span>
-          <span class="flex h-11 w-11 items-center justify-center rounded-full bg-slate-700 text-base font-extrabold text-slate-300">17</span>
-          <span class="flex h-11 w-11 items-center justify-center rounded-full bg-amber-400 text-base font-extrabold text-slate-900 ring-2 ring-amber-200">28</span>
-          <span class="flex h-11 w-11 items-center justify-center rounded-full bg-amber-400 text-base font-extrabold text-slate-900 ring-2 ring-amber-200">34</span>
-          <span class="flex h-11 w-11 items-center justify-center rounded-full bg-slate-700 text-base font-extrabold text-slate-300">49</span>
-          <span class="flex h-11 w-11 items-center justify-center rounded-full bg-amber-400 text-base font-extrabold text-slate-900 ring-2 ring-amber-200">55</span>
-        </div>
-        <p class="mt-4 text-sm text-slate-300">4 acertos no concurso 2800. Os jogos premiados aparecem destacados no seu lote.</p>
-        <p class="mt-2 text-xs text-slate-500">Exemplo ilustrativo com dados de demonstração.</p>
+        <a href="https://loterias.caixa.gov.br" target="_blank" rel="noopener noreferrer"
+           class="mt-4 flex min-h-[48px] items-center justify-center rounded-xl border border-slate-600 px-4 text-sm font-semibold text-amber-300 transition-all duration-200 hover:bg-slate-800 active:scale-[.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-400">Ver resultados no site da Caixa<span class="sr-only"> (abre em nova aba)</span></a>
+        <p class="mt-2 text-xs text-slate-500">O site da Caixa pede confirmação de maioridade (18 anos ou mais).</p>
       </div>
     </section>
 
@@ -97,5 +90,67 @@
   </footer>
 
   <script src="engine.js"></script>
+  <script>
+  (() => {
+    'use strict';
+    const API = 'https://servicebus2.caixa.gov.br/portaldeloterias/api/megasena';
+    const box = document.getElementById('ultimo-conteudo');
+    if (!box) return;
+    const el = (tag, cls, txt) => {
+      const e = document.createElement(tag);
+      if (cls) e.className = cls;
+      if (txt !== undefined) e.textContent = txt;   // textContent: nunca insere HTML vindo da API
+      return e;
+    };
+    const pad = (n) => String(n).padStart(2, '0');
+
+    function carregando() {
+      box.classList.add('min-h-[104px]');   // reserva a altura só durante o carregamento
+      const lista = el('div', 'flex flex-wrap gap-2');
+      lista.setAttribute('aria-hidden', 'true');
+      for (let i = 0; i < 6; i++) lista.appendChild(el('span', 'h-11 w-11 animate-pulse rounded-full bg-slate-800 motion-reduce:animate-none'));
+      box.replaceChildren(lista, el('span', 'sr-only', 'Carregando o último resultado'));
+    }
+    function indisponivel() {
+      box.classList.remove('min-h-[104px]');
+      box.replaceChildren(el('p', 'text-sm text-slate-300', 'Não foi possível carregar o último resultado agora. Confira no site oficial da Caixa.'));
+    }
+    // Aceita só dados válidos: concurso inteiro e 6 dezenas distintas entre 1 e 60
+    function normalizar(d) {
+      if (!d || typeof d !== 'object') return null;
+      const numero = Number(d.numero ?? d.concurso);
+      const bruto = d.listaDezenas ?? d.dezenasSorteadas ?? d.dezenas;
+      const dezenas = Array.isArray(bruto) ? bruto.map(Number) : [];
+      const data = String(d.dataApuracao ?? d.dataDoConcurso ?? d.data ?? '');
+      if (!Number.isInteger(numero) || numero < 1) return null;
+      if (dezenas.length !== 6 || dezenas.some((n) => !Number.isInteger(n) || n < 1 || n > 60) || new Set(dezenas).size !== 6) return null;
+      return { numero, dezenas: dezenas.sort((a, b) => a - b), data: /^\d{2}\/\d{2}\/\d{4}$/.test(data) ? data : '' };
+    }
+    function mostrar({ numero, dezenas, data }) {
+      const lista = el('ol', 'mt-3 flex flex-wrap gap-2');
+      lista.setAttribute('aria-label', 'Dezenas sorteadas');
+      dezenas.forEach((n) => lista.appendChild(el('li', 'flex h-11 w-11 items-center justify-center rounded-full bg-amber-400 text-base font-extrabold text-slate-900', pad(n))));
+      box.replaceChildren(
+        el('p', 'text-sm text-slate-400', `Concurso ${numero}${data ? ' · ' + data : ''}`),
+        lista,
+        el('p', 'mt-3 text-xs text-slate-500', 'Fonte: Loterias CAIXA.')
+      );
+    }
+    async function carregar() {
+      carregando();
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), 8000);
+      try {
+        const r = await fetch(API, { signal: ctrl.signal });
+        if (!r.ok) throw new Error('http ' + r.status);
+        const dados = normalizar(await r.json());
+        if (!dados) throw new Error('formato inesperado');
+        mostrar(dados);
+      } catch { indisponivel(); }
+      finally { clearTimeout(t); }
+    }
+    carregar();
+  })();
+  </script>
 </body>
 </html>

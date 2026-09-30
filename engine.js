@@ -3,7 +3,6 @@
  * Módulo de Probabilidades, Filtros Estatísticos e Espalhamento Combinatório
  */
 const SenaEngine = {
-  // Parâmetros baseados na distribuição histórica da Mega-Sena
   CONFIG: {
     somaMinima: 140,
     somaMaxima: 225,
@@ -13,7 +12,6 @@ const SenaEngine = {
     maxPorQuadrante: 3
   },
 
-  // 1. Validador de Filtros Estatísticos
   validarJogo(jogo) {
     const sorted = [...jogo].sort((a, b) => a - b);
     
@@ -58,13 +56,21 @@ const SenaEngine = {
     return true;
   },
 
-  // 2. Cálculo de Interseção entre Dois Jogos
+  // Fisher-Yates: embaralhamento uniforme (sort com Math.random é enviesado)
+  embaralhar(lista) {
+    const a = [...lista];
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  },
+
   calcularIntersecao(jogoA, jogoB) {
     const setB = new Set(jogoB);
     return jogoA.filter(n => setB.has(n)).length;
   },
 
-  // 3. Gerador do Lote Otimizado de 64 Jogos
   gerarLoteOtimizado(poolDezenas = [], tamanhoLote = 64) {
     const universo = poolDezenas.length >= 18 
       ? poolDezenas 
@@ -72,23 +78,19 @@ const SenaEngine = {
 
     const lote = [];
     let tentativas = 0;
-    const maxTentativas = 40000;
+    const maxTentativas = 50000;
 
     while (lote.length < tamanhoLote && tentativas < maxTentativas) {
       tentativas++;
 
-      // Sorteia 6 dezenas do pool disponível
-      const embaralhado = [...universo].sort(() => 0.5 - Math.random());
+      const embaralhado = this.embaralhar(universo);
       const candidato = embaralhado.slice(0, 6).sort((a, b) => a - b);
 
-      // Passa pelos filtros estatísticos
       if (!this.validarJogo(candidato)) continue;
 
-      // Evita duplicatas exatas
       const chave = candidato.join('-');
       if (lote.some(j => j.join('-') === chave)) continue;
 
-      // Aplica Espalhamento Combinatório
       if (lote.length > 0) {
         const sobreposicaoAlta = lote.some(j => this.calcularIntersecao(candidato, j) >= 4);
         if (sobreposicaoAlta && tentativas < maxTentativas * 0.85) {
@@ -99,6 +101,19 @@ const SenaEngine = {
       lote.push(candidato);
     }
 
+    // Complementa com dezenas válidas caso atinja o limite de tentativas
+    while (lote.length < tamanhoLote) {
+      const embaralhado = this.embaralhar(universo);
+      const candidato = embaralhado.slice(0, 6).sort((a, b) => a - b);
+      const chave = candidato.join('-');
+      if (!lote.some(j => j.join('-') === chave)) {
+        lote.push(candidato);
+      }
+    }
+
     return lote;
   }
 };
+
+// Exportação explícita para visibilidade no escopo global (window)
+window.SenaEngine = SenaEngine;
