@@ -57,7 +57,7 @@
           <button id="btn-copiar-todos" type="button"
             class="min-h-[48px] rounded-xl bg-emerald-600 px-3 text-sm font-semibold text-white transition-all duration-200 hover:bg-emerald-500 active:scale-[.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-400">Copiar todos os 64 jogos</button>
           <button id="btn-baixar" type="button"
-            class="min-h-[48px] rounded-xl border border-slate-600 px-3 text-sm font-semibold transition-all duration-200 hover:bg-slate-800 active:scale-[.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-400">Baixar arquivo TXT</button>
+            class="min-h-[48px] rounded-xl border border-slate-600 px-3 text-sm font-semibold transition-all duration-200 hover:bg-slate-800 active:scale-[.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-400">Baixar arquivo TXT</button>
         </div>
       </div>
       <p id="mensagem-completo" class="hidden rounded-xl border border-amber-400/40 bg-amber-400/10 px-4 py-3 text-sm text-amber-200">Lote completo: os 64 jogos foram apostados.</p>
@@ -70,7 +70,7 @@
 
       <div class="rounded-2xl border border-amber-400/40 bg-slate-900 p-4">
         <p class="text-sm text-slate-400">Último sorteio oficial</p>
-      <a href="index.html" class="text-xl font-extrabold text-amber-400 hover:opacity-80 transition-opacity focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-400">SenaMatch</a>
+        <p class="text-xl font-extrabold text-amber-400" id="ultimo-titulo"></p>
         <div class="my-4 flex flex-wrap gap-2" id="ultimo-bolas"></div>
         <button id="btn-conferir" type="button"
           class="min-h-[48px] w-full rounded-xl bg-emerald-600 px-4 text-sm font-semibold text-white transition-all duration-200 hover:bg-emerald-500 active:scale-[.98] sm:w-auto focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-400">Conferir meu lote</button>
@@ -118,17 +118,15 @@
   /* ================= DADOS MOCKADOS ================= */
   const CODIGO_LOTE = 'Sena-2026-004';
   const TOTAL = 64;
-  const PRECO_JOGO = 6;                                   // R$ por jogo (fictício)
-  const PREMIOS = { 4: 1100, 5: 55000, 6: 5000000 };      // R$ por acerto (fictício)
+  const PRECO_JOGO = 6;
+  const PREMIOS = { 4: 1100, 5: 55000, 6: 5000000 };
   const FAIXAS = { 4: 'Quadra', 5: 'Quina', 6: 'Sena' };
 
   const CONCURSO_ATUAL = 2800;
   const SORTEIO_ATUAL = [5, 12, 28, 34, 41, 55];
   const DATAS = ['26/09/2026','24/09/2026','22/09/2026','19/09/2026','17/09/2026','15/09/2026','12/09/2026',
-                 '10/09/2026','08/09/2026','05/09/2026','03/09/2026','01/09/2026','29/08/2026']; // 2800 → 2788
-  // Jogos fixos do lote que fazem 4 acertos no concurso 2800 (demonstra a conferência)
+                 '10/09/2026','08/09/2026','05/09/2026','03/09/2026','01/09/2026','29/08/2026'];
   const JOGOS_DEMO = { 13: [5, 17, 28, 34, 49, 55], 41: [8, 12, 23, 34, 41, 55] };
-  // Concursos passados em que um jogo do lote (índice) faz 4 acertos (demonstra o simulador)
   const PLANTIOS = { 2799: 7, 2796: 52, 2794: 3, 2791: 29 };
 
   /* ================= UTILITÁRIOS ================= */
@@ -154,7 +152,7 @@
   function gerarLote() {
     let semente = 0;
     for (const c of CODIGO_LOTE) semente = (semente * 31 + c.charCodeAt(0)) >>> 0;
-    const rnd = mulberry32(semente);   // determinístico: os mesmos jogos após recarregar
+    const rnd = mulberry32(semente);
     return Array.from({ length: TOTAL }, (_, i) => {
       const dezenas = new Set();
       while (dezenas.size < 6) dezenas.add(Math.floor(rnd() * 60) + 1);
@@ -170,7 +168,7 @@
     const s = new Set();
     if (alvo !== undefined) {
       const base = [...jogos[alvo]];
-      for (let i = base.length - 1; i > 0; i--) {           // Fisher-Yates
+      for (let i = base.length - 1; i > 0; i--) {
         const j = Math.floor(rnd() * (i + 1));
         [base[i], base[j]] = [base[j], base[i]];
       }
@@ -189,7 +187,6 @@
   });
   const concursoPorNumero = (n) => HISTORICO.find((c) => c.numero === n);
 
-  // Compara o sorteio com os 64 jogos; devolve apenas os jogos com 4+ acertos
   function conferir(sorteio) {
     const sorteadas = new Set(sorteio);
     return jogos
@@ -217,7 +214,7 @@
   function irParaAba(id) {
     ABAS.forEach((a) => {
       const ativa = a === id;
-      const painel = $('aba-' + a), tab = $('tab-' + a);
+      const painel = $('aba-' + a), tab =$('tab-' + a);
       painel.classList.toggle('hidden', !ativa);
       painel.classList.toggle('block', ativa);
       tab.setAttribute('aria-selected', String(ativa));
@@ -240,7 +237,7 @@
     } catch { return new Set(); }
   };
   const apostados = carregar();
-  const destaques = new Map();   // índice do jogo → { qtd, acertos } (resultado da conferência)
+  const destaques = new Map();
 
   const CARD_BASE = 'rounded-2xl border p-4 transition-all duration-200 motion-reduce:transition-none';
   const CARD_OFF = 'border-slate-800 bg-slate-900';
@@ -348,9 +345,7 @@
       atualizarProgresso();
     }
   });
-  $('btn-copiar-todos').addEventListener('click', async (e) =>
-    feedbackBotao(e.currentTarget, await copiarTexto(textoTodos()), 'Todos copiados!'));
-  $('btn-baixar').addEventListener('click', baixarTxt);
+  $('btn-copiar-todos').addEventListener('click', async (e) =>     feedbackBotao(e.currentTarget, await copiarTexto(textoTodos()), 'Todos copiados!'));$('btn-baixar').addEventListener('click', baixarTxt);
 
   /* ================= ABA 2: CONFERÊNCIA ================= */
   const bolaSorteio = (n) =>
