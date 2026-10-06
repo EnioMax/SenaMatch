@@ -14,6 +14,8 @@ Tudo é calculado sob demanda (por faixa de blocos), sem guardar os 38 milhões 
 
 import hashlib
 import hmac
+import io
+import zipfile
 from functools import lru_cache
 from itertools import chain, combinations
 from math import ceil, comb
@@ -32,6 +34,10 @@ DEZENA_MIN, DEZENA_MAX = 1, 60
 # 15.000 blocos = 960.000 jogos por arquivo: cabe no limite de linhas do Excel (1.048.576)
 BLOCOS_POR_ARQUIVO = 15_000
 TOTAL_ARQUIVOS = ceil(TOTAL_BLOCOS / BLOCOS_POR_ARQUIVO)
+
+# Pacotes ZIP de 5 arquivos (~26 MB) para baixar tudo em poucos downloads
+ARQUIVOS_POR_ZIP = 5
+TOTAL_ZIPS = ceil(TOTAL_ARQUIVOS / ARQUIVOS_POR_ZIP)
 
 PADRAO_ANCORAS = [[2 * i + 1, 2 * i + 2] for i in range(NUM_COLUNAS)]
 
@@ -184,6 +190,24 @@ def gerar_csv(ancoras: list[list[int]], semente: int, numero_arquivo: int) -> by
     return CABECALHO_CSV.encode() + saida.tobytes()
 
 
+def arquivos_do_zip(numero_zip: int) -> range:
+    """Números dos arquivos CSV que compõem o pacote ZIP `numero_zip` (1..TOTAL_ZIPS)."""
+    ini = (numero_zip - 1) * ARQUIVOS_POR_ZIP + 1
+    return range(ini, min(ini + ARQUIVOS_POR_ZIP, TOTAL_ARQUIVOS + 1))
+
+
+def gerar_zip(ancoras: list[list[int]], semente: int, numero_zip: int, prefixo: str, progresso=None) -> bytes:
+    """ZIP com os CSVs do pacote. `progresso(feitos, total)` é chamado a cada arquivo."""
+    arquivos = arquivos_do_zip(numero_zip)
+    saida = io.BytesIO()
+    with zipfile.ZipFile(saida, "w", zipfile.ZIP_DEFLATED) as zf:
+        for i, numero in enumerate(arquivos):
+            zf.writestr(f"{prefixo}_parte{numero:02d}de{TOTAL_ARQUIVOS}.csv", gerar_csv(ancoras, semente, numero))
+            if progresso:
+                progresso(i + 1, len(arquivos))
+    return saida.getvalue()
+
+
 # ----------------------------------------------------------------------
 # Conferência
 # ----------------------------------------------------------------------
@@ -215,6 +239,33 @@ def interpretar_sorteios(texto: str) -> tuple[list[tuple[str, tuple[int, ...]]],
         else:
             sorteios.append((rotulo, tuple(sorted(dezenas))))
     return sorteios, erros
+
+
+def resumir_sorteio(ancoras: list[list[int]], sorteio: tuple[int, ...]) -> dict:
+    """Contagem de Quadras, Quinas e Senas do lote inteiro por combinatória (instantâneo).
+
+    Em cada coluna, a quantidade de dezenas sorteadas é 0, 1 ou 2. Num bloco com i2 colunas
+    de 2, i1 de 1 e i0 de 0: as de 2 acertam em qualquer escolha, as de 1 acertam em
+    1 das 2 escolhas e as de 0 nunca acertam.
+    """
+    anc = ancoras_para_array(ancoras)
+    sorteadas = np.zeros(DEZENA_MAX + 1, dtype=bool)
+    sorteadas[list(sorteio)] = True
+    por_coluna = sorteadas[anc].sum(axis=1)
+    a2, a1 = int((por_coluna == 2).sum()), int((por_coluna == 1).sum())
+    a0 = NUM_COLUNAS - a1 - a2
+
+    contagem = {4: 0, 5: 0, 6: 0}
+    for i2 in range(min(a2, COLUNAS_POR_BLOCO) + 1):
+        for i1 in range(min(a1, COLUNAS_POR_BLOCO - i2) + 1):
+            i0 = COLUNAS_POR_BLOCO - i2 - i1
+            if i0 > a0:
+                continue
+            blocos = comb(a2, i2) * comb(a1, i1) * comb(a0, i0)
+            for j in range(i1 + 1):
+                if i2 + j >= 4:
+                    contagem[i2 + j] += blocos * comb(i1, j) * 2 ** (i2 + i0)
+    return {"contagem": contagem, "melhor": min(a1 + a2, COLUNAS_POR_BLOCO)}
 
 
 def conferir_sorteio(ancoras: list[list[int]], semente: int, sorteio: tuple[int, ...]) -> dict:

@@ -69,6 +69,20 @@ def test_csv():
     assert len(linhas1) == 1 + 960_000
 
 
+def test_zip():
+    import zipfile
+
+    assert n.TOTAL_ZIPS == 8
+    assert list(n.arquivos_do_zip(1)) == [1, 2, 3, 4, 5]
+    assert list(n.arquivos_do_zip(8)) == [36, 37, 38, 39, 40]
+    chamadas = []
+    dados = n.gerar_zip(n.PADRAO_ANCORAS, SEMENTE, 8, "x", lambda f, t: chamadas.append((f, t)))
+    with zipfile.ZipFile(io.BytesIO(dados)) as zf:
+        assert zf.namelist() == [f"x_parte{k}de40.csv" for k in range(36, 41)]
+        assert zf.read("x_parte40de40.csv") == n.gerar_csv(n.PADRAO_ANCORAS, SEMENTE, 40)
+    assert chamadas[-1] == (5, 5)
+
+
 def test_validacao_e_sorteios():
     assert n.validar_ancoras(n.PADRAO_ANCORAS) == []
     repetida = [list(c) for c in n.PADRAO_ANCORAS]
@@ -77,6 +91,15 @@ def test_validacao_e_sorteios():
     assert n.validar_ancoras([[None, 1]] + n.PADRAO_ANCORAS[1:])
     ok, erros = n.interpretar_sorteios("Concurso 1: 4-6-9-13-28-48\n1 2 3\n1 1 2 3 4 5\n0 1 2 3 4 5\n7 8 9 10 11 61")
     assert ok == [("Concurso 1", (4, 6, 9, 13, 28, 48))] and len(erros) == 4
+
+
+def test_resumo_rapido_aleatorio():
+    rnd = random.Random(3)
+    for _ in range(300):
+        sorteio = tuple(sorted(rnd.sample(range(1, 61), 6)))
+        rapido = n.resumir_sorteio(n.PADRAO_ANCORAS, sorteio)
+        completo = n.conferir_sorteio(n.PADRAO_ANCORAS, SEMENTE, sorteio)
+        assert rapido == {"contagem": completo["contagem"], "melhor": completo["melhor"]}, sorteio
 
 
 def forca_bruta(ancoras, semente, sorteio):
@@ -110,6 +133,7 @@ def test_conferidor_contra_forca_bruta():
         extras = [tuple(sorted(int(d) for d in anc[list(c)][:, 0])) for c in ([0, 1, 2, 3, 4, 5], [3, 9, 12, 20, 25, 29])]
         for sorteio in sorteios + extras:
             r = n.conferir_sorteio(ancoras, semente, sorteio)
+            assert n.resumir_sorteio(ancoras, sorteio) == {"contagem": r["contagem"], "melhor": r["melhor"]}
             cont, melhor = forca_bruta(ancoras, semente, sorteio)
             assert r["contagem"] == cont, (sorteio, r["contagem"], cont)
             assert r["melhor"] == melhor, (sorteio, r["melhor"], melhor)
