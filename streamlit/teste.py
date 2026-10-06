@@ -94,6 +94,49 @@ def gerar_lote(colunas: list[list[int]], rng: random.Random | None) -> list[tupl
     return jogos
 
 
+FAIXAS = {6: "🏆 Sena", 5: "🥈 Quina", 4: "🥉 Quadra"}
+MIN_ACERTOS_PREMIO = min(FAIXAS)
+
+
+def interpretar_sorteios(texto: str) -> tuple[list[tuple[str, tuple[int, ...]]], list[str]]:
+    """Lê um sorteio por linha (6 dezenas, separadas por espaço, vírgula, '-' ou ';').
+
+    Uma linha pode ter um rótulo antes de ':' (ex.: 'Concurso 2800: 04 11 25 38 47 59').
+    Retorna (sorteios válidos como (rótulo, dezenas), lista de erros).
+    """
+    sorteios: list[tuple[str, tuple[int, ...]]] = []
+    erros: list[str] = []
+    for n, linha in enumerate(texto.splitlines(), start=1):
+        linha = linha.strip()
+        if not linha:
+            continue
+        rotulo, _, resto = linha.rpartition(":")
+        rotulo = rotulo.strip() or f"Sorteio {len(sorteios) + len(erros) + 1}"
+        partes = resto.replace(",", " ").replace(";", " ").replace("-", " ").split()
+        if not all(p.isdigit() for p in partes):
+            erros.append(f"Linha {n}: use apenas números separados por espaço, vírgula ou hífen.")
+            continue
+        dezenas = [int(p) for p in partes]
+        if len(dezenas) != NUM_COLUNAS:
+            erros.append(f"Linha {n}: informe {NUM_COLUNAS} dezenas (encontradas {len(dezenas)}).")
+        elif len(set(dezenas)) != NUM_COLUNAS:
+            erros.append(f"Linha {n}: há dezenas repetidas.")
+        elif not all(DEZENA_MIN <= d <= DEZENA_MAX for d in dezenas):
+            erros.append(f"Linha {n}: as dezenas devem estar entre {DEZENA_MIN:02d} e {DEZENA_MAX:02d}.")
+        else:
+            sorteios.append((rotulo, tuple(sorted(dezenas))))
+    return sorteios, erros
+
+
+def conferir_sorteio(lote: list[tuple[int, ...]], sorteio: tuple[int, ...]) -> list[dict]:
+    """Acertos de cada jogo (a Sena não depende da ordem das dezenas)."""
+    sorteadas = set(sorteio)
+    return [
+        {"jogo": n, "dezenas": jogo, "acertos": sorteadas & set(jogo)}
+        for n, jogo in enumerate(lote, start=1)
+    ]
+
+
 def formatar_jogo(numero: int, jogo: tuple[int, ...]) -> str:
     return f"Jogo {numero:02d}: " + " - ".join(f"{d:02d}" for d in jogo)
 
@@ -181,6 +224,83 @@ def mostrar_resultado(res: dict) -> None:
         )
 
 
+def html_jogo_conferido(numero: int, jogo: tuple[int, ...], acertos: set[int], colunas: list[list[int]]) -> str:
+    """Dezenas acertadas ficam coloridas; as demais ficam apagadas."""
+    bolas = "".join(
+        f'<span style="{ESTILO_BOLA}'
+        + (estilo_cor(c, d == colunas[c][0]) if d in acertos else "border:2px solid #9ca3af55;color:#9ca3af;opacity:.6;")
+        + f'">{d:02d}</span>'
+        for c, d in enumerate(jogo)
+    )
+    return (
+        '<div style="display:flex;align-items:center;gap:6px;margin:4px 0;">'
+        f'<span style="min-width:70px;font-weight:600;">Jogo {numero:02d}</span>{bolas}</div>'
+    )
+
+
+def mostrar_conferidor(res: dict) -> None:
+    st.divider()
+    st.header("✅ Conferidor de Resultados")
+    st.caption(
+        f"Digite os sorteios da Sena, um por linha ({NUM_COLUNAS} dezenas, separadas por espaço, "
+        "vírgula ou hífen). Opcionalmente, identifique o concurso antes de dois-pontos, "
+        "ex.: Concurso 2800: 04 11 25 38 47 59. A conferência é automática "
+        "(Ctrl+Enter ou clique fora do campo)."
+    )
+    texto = st.text_area(
+        "Resultados dos sorteios",
+        height=140,
+        placeholder="Concurso 2800: 04 11 25 38 47 59\n05 17 23 31 42 60",
+        key="texto_sorteios",
+    )
+    sorteios, erros = interpretar_sorteios(texto)
+    for erro in erros:
+        st.error(erro)
+    if not sorteios:
+        if not erros:
+            st.info("Aguardando o resultado dos sorteios.")
+        return
+
+    lote, colunas = res["lote"], res["colunas"]
+    resumo = []
+    detalhes = []
+    for rotulo, sorteio in sorteios:
+        conferidos = conferir_sorteio(lote, sorteio)
+        premiados = [c for c in conferidos if len(c["acertos"]) >= MIN_ACERTOS_PREMIO]
+        premiados.sort(key=lambda c: (-len(c["acertos"]), c["jogo"]))
+        melhor = max(len(c["acertos"]) for c in conferidos)
+        resumo.append(
+            {
+                "Sorteio": rotulo,
+                "Dezenas": " ".join(f"{d:02d}" for d in sorteio),
+                **{FAIXAS[k]: sum(len(c["acertos"]) == k for c in conferidos) for k in FAIXAS},
+                "Melhor resultado": f"{melhor} acertos",
+            }
+        )
+        detalhes.append((rotulo, sorteio, premiados, melhor))
+
+    total = sum(len(p) for _, _, p, _ in detalhes)
+    if total:
+        st.success(f"🎉 {total} jogo(s) premiado(s) em {len(sorteios)} sorteio(s) conferido(s)!")
+    else:
+        st.warning(f"Nenhum jogo premiado (Quadra ou mais) em {len(sorteios)} sorteio(s) conferido(s).")
+    st.table(pd.DataFrame(resumo).set_index("Sorteio"))
+
+    for rotulo, sorteio, premiados, melhor in detalhes:
+        st.subheader(f"{rotulo} — {' '.join(f'{d:02d}' for d in sorteio)}")
+        if not premiados:
+            st.write(f"Sem jogos premiados. Melhor resultado do lote: {melhor} acerto(s).")
+            continue
+        for c in premiados:
+            qtd = len(c["acertos"])
+            lista = ", ".join(f"{d:02d}" for d in sorted(c["acertos"]))
+            st.markdown(
+                html_jogo_conferido(c["jogo"], c["dezenas"], c["acertos"], colunas)
+                + f'<div style="margin:0 0 10px 76px;">{FAIXAS[qtd]} — {qtd} acertos ({lista})</div>',
+                unsafe_allow_html=True,
+            )
+
+
 # ----------------------------------------------------------------------
 # Interface
 # ----------------------------------------------------------------------
@@ -263,3 +383,4 @@ if resultado:
     if resultado["codigo"] != codigo_apostador.strip() or resultado["colunas"] != colunas_cfg:
         st.info("As âncoras ou o código foram alterados. Clique em gerar para criar o novo lote.")
     mostrar_resultado(resultado)
+    mostrar_conferidor(resultado)
