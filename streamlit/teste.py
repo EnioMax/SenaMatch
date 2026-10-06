@@ -224,17 +224,38 @@ def mostrar_resultado(res: dict) -> None:
         )
 
 
-def html_jogo_conferido(numero: int, jogo: tuple[int, ...], acertos: set[int], colunas: list[list[int]]) -> str:
-    """Dezenas acertadas ficam coloridas; as demais ficam apagadas."""
+def html_jogo_conferido(numero: int, jogo: tuple[int, ...], acertos: set[int]) -> str:
+    """Uma linha do conferidor: dezenas acertadas em destaque, demais apagadas."""
     bolas = "".join(
         f'<span style="{ESTILO_BOLA}'
-        + (estilo_cor(c, d == colunas[c][0]) if d in acertos else "border:2px solid #9ca3af55;color:#9ca3af;opacity:.6;")
+        + (
+            f"background:{CORES[c]};color:#fff;border:2px solid {CORES[c]};"
+            f"box-shadow:0 0 0 3px {CORES[c]}55;"
+            if d in acertos
+            else "border:2px solid #9ca3af55;color:#9ca3af;opacity:.5;font-weight:400;"
+        )
         + f'">{d:02d}</span>'
         for c, d in enumerate(jogo)
     )
+    qtd = len(acertos)
+    if qtd:
+        lista = ", ".join(f"{d:02d}" for d in sorted(acertos))
+        faixa = f"{FAIXAS[qtd]} · " if qtd in FAIXAS else ""
+        detalhe = f"<b>{faixa}{qtd} acerto{'s' if qtd > 1 else ''}</b>: {lista}"
+    else:
+        detalhe = '<span style="opacity:.5;">0 acertos</span>'
     return (
-        '<div style="display:flex;align-items:center;gap:6px;margin:4px 0;">'
-        f'<span style="min-width:70px;font-weight:600;">Jogo {numero:02d}</span>{bolas}</div>'
+        '<div style="display:flex;align-items:center;gap:8px;margin:6px 0;flex-wrap:wrap;">'
+        f'<span style="min-width:62px;font-weight:600;">Jogo {numero:02d}</span>{bolas}'
+        f'<span style="margin-left:6px;">{detalhe}</span></div>'
+    )
+
+
+def html_lista_conferida(conferidos: list[dict]) -> str:
+    linhas = "".join(html_jogo_conferido(c["jogo"], c["dezenas"], c["acertos"]) for c in conferidos)
+    return (
+        '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(520px,1fr));'
+        f'column-gap:24px;">{linhas}</div>'
     )
 
 
@@ -261,13 +282,20 @@ def mostrar_conferidor(res: dict) -> None:
             st.info("Aguardando o resultado dos sorteios.")
         return
 
-    lote, colunas = res["lote"], res["colunas"]
+    ordem = st.radio(
+        "Ordenar jogos por",
+        ["Mais acertos", "Número do jogo"],
+        horizontal=True,
+        key="ordem_conferidor",
+    )
+
+    lote = res["lote"]
     resumo = []
     detalhes = []
     for rotulo, sorteio in sorteios:
         conferidos = conferir_sorteio(lote, sorteio)
-        premiados = [c for c in conferidos if len(c["acertos"]) >= MIN_ACERTOS_PREMIO]
-        premiados.sort(key=lambda c: (-len(c["acertos"]), c["jogo"]))
+        if ordem == "Mais acertos":
+            conferidos.sort(key=lambda c: (-len(c["acertos"]), c["jogo"]))
         melhor = max(len(c["acertos"]) for c in conferidos)
         resumo.append(
             {
@@ -277,28 +305,21 @@ def mostrar_conferidor(res: dict) -> None:
                 "Melhor resultado": f"{melhor} acertos",
             }
         )
-        detalhes.append((rotulo, sorteio, premiados, melhor))
+        detalhes.append((rotulo, sorteio, conferidos))
 
-    total = sum(len(p) for _, _, p, _ in detalhes)
-    if total:
-        st.success(f"🎉 {total} jogo(s) premiado(s) em {len(sorteios)} sorteio(s) conferido(s)!")
+    premiados = sum(
+        len(c["acertos"]) >= MIN_ACERTOS_PREMIO for _, _, conferidos in detalhes for c in conferidos
+    )
+    if premiados:
+        st.success(f"🎉 {premiados} jogo(s) premiado(s) em {len(sorteios)} sorteio(s) conferido(s)!")
     else:
         st.warning(f"Nenhum jogo premiado (Quadra ou mais) em {len(sorteios)} sorteio(s) conferido(s).")
     st.table(pd.DataFrame(resumo).set_index("Sorteio"))
 
-    for rotulo, sorteio, premiados, melhor in detalhes:
+    for rotulo, sorteio, conferidos in detalhes:
         st.subheader(f"{rotulo} — {' '.join(f'{d:02d}' for d in sorteio)}")
-        if not premiados:
-            st.write(f"Sem jogos premiados. Melhor resultado do lote: {melhor} acerto(s).")
-            continue
-        for c in premiados:
-            qtd = len(c["acertos"])
-            lista = ", ".join(f"{d:02d}" for d in sorted(c["acertos"]))
-            st.markdown(
-                html_jogo_conferido(c["jogo"], c["dezenas"], c["acertos"], colunas)
-                + f'<div style="margin:0 0 10px 76px;">{FAIXAS[qtd]} — {qtd} acertos ({lista})</div>',
-                unsafe_allow_html=True,
-            )
+        st.caption("Dezenas acertadas em destaque (bolinha cheia com brilho); as demais ficam apagadas.")
+        st.markdown(html_lista_conferida(conferidos), unsafe_allow_html=True)
 
 
 # ----------------------------------------------------------------------
