@@ -316,7 +316,23 @@ def mostrar_conferidor(res: dict) -> None:
 # ----------------------------------------------------------------------
 # Interface
 # ----------------------------------------------------------------------
-st.set_page_config(page_title="SenaMatch - Simulador de Lotes", page_icon="🎯", layout="wide")
+LOGO = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets", "logo.png")
+st.set_page_config(
+    page_title="SenaMatch",
+    page_icon=LOGO if os.path.exists(LOGO) else "🎯",
+    layout="wide",
+)
+
+# Streamlit renderiza no body; os navegadores costumam ignorar estas tags fora do <head>,
+# então o nome/ícone do atalho depende principalmente de page_title e page_icon acima.
+st.markdown(
+    """
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="SenaMatch">
+    <link rel="icon" href="app/static/logo.png">
+    """,
+    unsafe_allow_html=True,
+)
 
 segredo, segredo_seguro = obter_segredo()
 

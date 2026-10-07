@@ -142,15 +142,14 @@ def ancoras_para_array(ancoras: list[list[int]]) -> np.ndarray:
 def gerar_blocos(ancoras: np.ndarray, semente: int, posicoes: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     """Gera os blocos nas posições dadas (0-based).
 
-    Retorna (colunas (n,6), jogos (n,64,6)); as dezenas de cada jogo saem em ordem crescente
-    e os 64 jogos de cada bloco já vêm na ordem definida pelo código do apostador.
+    Retorna (colunas (n,6), jogos (n,64,6)); a dezena Dk de cada jogo pertence à k-ésima coluna
+    do bloco (colunas em ordem crescente), preservando a ancoragem, e os 64 jogos de cada bloco já vêm na ordem definida pelo código do apostador.
     """
     posicoes = np.asarray(posicoes, dtype=np.int64)
     colunas = todas_combinacoes()[ordem_dos_blocos(semente)[posicoes]]
     por_coluna = ancoras[colunas]  # (n, 6, 2)
     jogos = por_coluna[:, np.arange(COLUNAS_POR_BLOCO)[None, :], BITS]  # (n, 64, 6)
     jogos = np.take_along_axis(jogos, _ordem_dos_jogos(semente, posicoes)[:, :, None], axis=1)
-    jogos.sort(axis=2)
     return colunas, jogos
 
 

@@ -37,7 +37,8 @@ def test_bloco_valido():
     assert len({tuple(j) for j in jogos[0]}) == 64
     permitidas = {int(d) for c in colunas[0] for d in ANC[c]}
     for jogo in jogos[0]:
-        assert list(jogo) == sorted(jogo) and len(set(jogo)) == 6
+        assert len(set(jogo)) == 6
+        assert all(int(d) in ANC[c] for d, c in zip(jogo, colunas[0]))  # Dk vem da coluna k
         assert set(map(int, jogo)) <= permitidas
         assert len({(int(d) - 1) // 2 for d in jogo}) == 6  # nenhum par repetido no jogo
 
