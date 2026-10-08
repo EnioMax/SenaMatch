@@ -1,14 +1,17 @@
 """
 SenaMatch - Simulador de Lotes (v4)
 
-Regra do lote:
+Regra do conjunto:
   - 30 colunas (N1..N30), cada uma com 2 dezenas âncora (as 60 dezenas, todas diferentes).
-  - Um BLOCO é a escolha de 6 colunas entre as 30: C(30;6) = 593.775 blocos.
-  - Cada bloco gera 2^6 = 64 jogos (1 dezena de cada coluna escolhida), sem repetição.
-  - Total: 593.775 x 64 = 38.001.600 jogos; cada dezena aparece no mesmo número de jogos.
+  - Um LOTE é a escolha de 6 colunas entre as 30: C(30;6) = 593.775 lotes.
+  - Cada lote gera 2^6 = 64 jogos (1 dezena de cada coluna escolhida), sem repetição.
+  - Total do conjunto: 593.775 x 64 = 38.001.600 jogos; cada dezena aparece no mesmo número de jogos.
+  - Posição: a dezena ocupa no jogo a posição da sua coluna dentro do lote (colunas em ordem
+    crescente). As dezenas de N1 ficam sempre na 1ª posição, independente do valor.
+    Os jogos não seguem ordem crescente.
 
-O código do apostador e o segredo do servidor definem a ORDEM dos blocos e dos jogos
-(HMAC). Mesmo código + mesmas âncoras -> sempre o mesmo lote.
+O código do apostador e o segredo do servidor definem a ORDEM dos lotes e dos jogos
+(HMAC). Mesmo código + mesmas âncoras -> sempre o mesmo conjunto.
 Os jogos são gerados sob demanda e entregues em arquivos CSV (cabem no Excel).
 
 Segredo: defina SENAMATCH_SECRET em st.secrets (Streamlit Cloud) ou como variável de ambiente.
@@ -27,7 +30,7 @@ MAX_JOGOS_EXIBIDOS = 200
 MAX_SORTEIOS = 1000
 MAX_DETALHES = 5  # até aqui mostra os jogos premiados de todos os sorteios
 
-# Uma cor por posição de coluna dentro do bloco (tons que funcionam em tema claro e escuro)
+# Uma cor por posição de coluna dentro do lote (tons que funcionam em tema claro e escuro)
 CORES = ["#d97706", "#059669", "#2563eb", "#9333ea", "#dc2626", "#db2777"]
 COR_ACERTO = "#059669"
 
@@ -56,30 +59,22 @@ def obter_segredo() -> tuple[str, bool]:
 # ----------------------------------------------------------------------
 # Exibição
 # ----------------------------------------------------------------------
-def html_bloco(colunas: np.ndarray, jogos: np.ndarray, ancoras: np.ndarray) -> str:
-    """Os 64 jogos de um bloco em N1..N30: cada dezena aparece sob a sua coluna."""
-    cor_da_coluna = {int(c): CORES[k] for k, c in enumerate(colunas)}
-    celula = "padding:2px 3px;text-align:center;"
+def html_bloco(colunas: np.ndarray, jogos: np.ndarray) -> str:
+    """Os 64 jogos de um lote: só as 6 dezenas de cada jogo, da 1ª à 6ª posição."""
+    celula = "padding:2px 4px;text-align:center;"
     bola = (
-        "display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;"
-        "border-radius:50%;font-weight:600;font-size:12px;color:#fff;box-sizing:border-box;"
+        "display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;"
+        "border-radius:50%;font-weight:600;font-size:14px;color:#fff;box-sizing:border-box;"
     )
     cabecalho = "".join(
-        f'<th style="{celula}font-size:11px;'
-        + (f'color:{cor_da_coluna[c]};' if c in cor_da_coluna else "opacity:.45;")
-        + f'">N{c + 1}</th>'
-        for c in range(n.NUM_COLUNAS)
+        f'<th style="{celula}font-size:11px;line-height:1.3;color:{CORES[k]};">{k + 1}ª<br>N{int(c) + 1}</th>'
+        for k, c in enumerate(colunas)
     )
     linhas = []
     for num, jogo in enumerate(jogos, start=1):
-        por_coluna = {}
-        for d in jogo:
-            por_coluna[next(c for c in cor_da_coluna if int(d) in ancoras[c])] = int(d)
         celulas = "".join(
-            f'<td style="{celula}">'
-            + (f'<span style="{bola}background:{cor_da_coluna[c]};">{por_coluna[c]:02d}</span>' if c in por_coluna else "")
-            + "</td>"
-            for c in range(n.NUM_COLUNAS)
+            f'<td style="{celula}"><span style="{bola}background:{CORES[k]};">{int(d):02d}</span></td>'
+            for k, d in enumerate(jogo)
         )
         linhas.append(f'<tr><td style="padding:2px 8px 2px 0;font-weight:600;white-space:nowrap;">Jogo {num:02d}</td>{celulas}</tr>')
     return (
@@ -104,7 +99,7 @@ def html_jogo_conferido(bloco: int, jogo: int, dezenas: np.ndarray, sorteio: tup
     lista = ", ".join(f"{d:02d}" for d in acertos)
     return (
         '<div style="display:flex;align-items:center;gap:8px;margin:6px 0;flex-wrap:wrap;">'
-        f'<span style="min-width:150px;font-weight:600;">Bloco {bloco:06d} · Jogo {jogo:02d}</span>{bolas}'
+        f'<span style="min-width:150px;font-weight:600;">Lote {bloco:06d} · Jogo {jogo:02d}</span>{bolas}'
         f'<span style="margin-left:6px;"><b>{FAIXAS[len(acertos)]} · {len(acertos)} acertos</b>: {lista}</span></div>'
     )
 
@@ -117,38 +112,42 @@ def mostrar_resultado(res: dict) -> None:
     ancoras = n.ancoras_para_array(res["ancoras"])
 
     c1, c2, c3, c4, c5 = st.columns(5)
-    c1.metric("Blocos no lote", milhar(n.TOTAL_BLOCOS), help="Cada bloco combina 6 das 30 colunas.")
-    c2.metric("Jogos por bloco", n.JOGOS_POR_BLOCO, help="Uma dezena de cada coluna do bloco: 2⁶ = 64 jogos.")
-    c3.metric("Jogos no lote", milhar(n.TOTAL_JOGOS), help="Todos os blocos juntos.")
-    c4.metric("Jogos por dezena", milhar(n.JOGOS_POR_DEZENA), help="Quantos jogos do lote contêm cada dezena (igual para todas).")
-    c5.metric("ID do lote", res["id"], help="Identifica este lote: depende do código do apostador e das âncoras.")
+    c1.metric("Lotes no conjunto", milhar(n.TOTAL_BLOCOS), help="Cada lote combina 6 das 30 colunas.")
+    c2.metric("Jogos por lote", n.JOGOS_POR_BLOCO, help="Uma dezena de cada coluna do lote: 2⁶ = 64 jogos.")
+    c3.metric("Jogos no conjunto", milhar(n.TOTAL_JOGOS), help="Todos os lotes juntos.")
+    c4.metric("Jogos por dezena", milhar(n.JOGOS_POR_DEZENA), help="Quantos jogos do conjunto contêm cada dezena (igual para todas).")
+    c5.metric("ID do conjunto", res["id"], help="Identifica este conjunto: depende do código do apostador e das âncoras.")
 
-    aba_bloco, aba_arquivos = st.tabs(["🔎 Ver os jogos de um bloco", "⬇️ Baixar os jogos do lote"])
+    aba_bloco, aba_arquivos = st.tabs(["🔎 Ver os jogos de um lote", "⬇️ Baixar os jogos do conjunto"])
 
     with aba_bloco:
         bloco = st.number_input(
-            "Número do bloco (1 a 593.775)",
+            "Número do lote (1 a 593.775)",
             min_value=1,
             max_value=n.TOTAL_BLOCOS,
             value=1,
             step=1,
             key="numero_bloco",
-            help="Apenas para consultar um bloco na tela. Não altera o lote nem a conferência.",
+            help="Apenas para consultar um lote na tela. Não altera o conjunto nem a conferência.",
         )
         colunas, jogos = n.gerar_blocos(ancoras, res["semente"], np.array([int(bloco) - 1]))
         legenda = " ".join(
             f'<b style="color:{CORES[k]};">N{c + 1}</b> ({ancoras[c][0]:02d}/{ancoras[c][1]:02d})'
             for k, c in enumerate(colunas[0])
         )
-        st.markdown(f"Colunas do bloco {int(bloco):06d}: {legenda}", unsafe_allow_html=True)
-        st.caption("Cada dezena aparece sob a sua coluna (N1 a N30); as colunas fora do bloco ficam vazias.")
-        st.markdown(html_bloco(colunas[0], jogos[0], ancoras), unsafe_allow_html=True)
+        st.markdown(f"Colunas do lote {int(bloco):06d}: {legenda}", unsafe_allow_html=True)
+        st.caption(
+            "Cada jogo tem 6 dezenas, da 1ª à 6ª posição. O cabeçalho mostra a posição e a coluna de origem "
+            "(N1 a N30); a posição é a ordem da coluna dentro do lote (da menor para a maior). "
+            "Os jogos não seguem ordem crescente."
+        )
+        st.markdown(html_bloco(colunas[0], jogos[0]), unsafe_allow_html=True)
 
     with aba_arquivos:
         st.write(
-            f"O lote tem {milhar(n.TOTAL_JOGOS)} jogos, divididos em **{n.TOTAL_ARQUIVOS} arquivos CSV** de até "
+            f"O conjunto tem {milhar(n.TOTAL_JOGOS)} jogos, divididos em **{n.TOTAL_ARQUIVOS} arquivos CSV** de até "
             f"{milhar(n.BLOCOS_POR_ARQUIVO * n.JOGOS_POR_BLOCO)} jogos (cabem em uma planilha do Excel). "
-            "Colunas: Bloco, Jogo e N1 a N30: cada dezena fica sob a sua coluna e as colunas fora do bloco ficam vazias."
+            "Colunas: Lote, Jogo e D1 a D6 (as 6 dezenas do jogo, da 1ª à 6ª posição)."
         )
         formato = st.radio(
             "Como baixar",
@@ -162,7 +161,7 @@ def mostrar_resultado(res: dict) -> None:
 
             def rotulo(num: int) -> str:
                 ini, fim = n.intervalo_do_arquivo(num)
-                return f"Arquivo {num:02d} de {n.TOTAL_ARQUIVOS} — blocos {milhar(ini + 1)} a {milhar(fim)}"
+                return f"Arquivo {num:02d} de {n.TOTAL_ARQUIVOS} — lotes {milhar(ini + 1)} a {milhar(fim)}"
 
             numero = st.selectbox("Arquivo", range(1, n.TOTAL_ARQUIVOS + 1), format_func=rotulo, key="arquivo_escolhido")
             chave = (res["id"], "csv", numero)
@@ -178,7 +177,10 @@ def mostrar_resultado(res: dict) -> None:
             chave = (res["id"], "zip", numero)
             nome = f"{prefixo}_pacote{numero}de{n.TOTAL_ZIPS}.zip"
             mime = "application/zip"
-            st.caption("Cada pacote leva cerca de 10 segundos para ser preparado. Baixe os 8 pacotes para ter o lote completo.")
+            st.caption(
+                f"Cada pacote leva cerca de 10 segundos para ser preparado. "
+                f"Baixe os {n.TOTAL_ZIPS} pacotes para ter o conjunto completo."
+            )
 
         if st.button("Preparar download", key="btn_preparar"):
             if formato == "Um arquivo CSV":
@@ -217,7 +219,7 @@ def mostrar_detalhes(indice: int, rotulo: str, sorteio: tuple[int, ...], res: di
     st.subheader(f"{rotulo} — {' '.join(f'{d:02d}' for d in sorteio)}")
     total_sorteio = len(r["acertos"])
     if not total_sorteio:
-        st.write(f"Sem jogos premiados. Melhor resultado do lote: {r['melhor']} acerto(s).")
+        st.write(f"Sem jogos premiados. Melhor resultado do conjunto: {r['melhor']} acerto(s).")
         return
     st.caption("Dezenas acertadas em destaque (bolinha cheia com brilho); as demais ficam apagadas.")
     exibir = min(total_sorteio, MAX_JOGOS_EXIBIDOS)
@@ -234,7 +236,7 @@ def mostrar_detalhes(indice: int, rotulo: str, sorteio: tuple[int, ...], res: di
         {
             "Faixa": [FAIXAS[int(a)] for a in r["acertos"]],
             "Acertos": r["acertos"],
-            "Bloco": r["blocos"],
+            "Lote": r["blocos"],
             "Jogo": r["jogos"],
             **{f"D{c + 1}": r["dezenas"][:, c] for c in range(6)},
         }
@@ -255,8 +257,8 @@ def mostrar_conferidor(res: dict) -> None:
         "Digite os sorteios da Sena, um por linha (6 dezenas, separadas por espaço, vírgula ou hífen). "
         "Opcionalmente, identifique o concurso antes de dois-pontos, "
         "ex.: Concurso 2800: 04 11 25 38 47 59. A conferência é automática "
-        "(Ctrl+Enter ou clique fora do campo). Ela considera **o lote inteiro** "
-        f"({milhar(n.TOTAL_BLOCOS)} blocos), independentemente do bloco que você estiver visualizando. "
+        "(Ctrl+Enter ou clique fora do campo). Ela considera **o conjunto inteiro** "
+        f"({milhar(n.TOTAL_BLOCOS)} lotes), independentemente do lote que você estiver visualizando. "
         f"Limite: {MAX_SORTEIOS} sorteios por vez."
     )
     texto = st.text_area(
@@ -354,7 +356,7 @@ with st.sidebar:
     codigo_apostador = st.text_input("Código do Apostador Base", value="593775", key="codigo_apostador")
     if not segredo_seguro:
         st.warning(
-            "Modo de desenvolvimento: defina SENAMATCH_SECRET para que os lotes "
+            "Modo de desenvolvimento: defina SENAMATCH_SECRET para que os conjuntos "
             "sejam exclusivos e não reproduzíveis por terceiros."
         )
 
@@ -363,21 +365,24 @@ st.write(
     "Gerador exclusivo de jogos da Sena para o apostador base, a partir de 30 colunas "
     "com 2 dezenas âncora cada."
 )
-with st.expander("ℹ️ Como funciona: lote, bloco e jogo", expanded=True):
+with st.expander("ℹ️ Como funciona: conjunto, lote e jogo", expanded=True):
     st.markdown(
-        f"- **Jogo:** 6 dezenas, uma de cada coluna escolhida.\n"
-        f"- **Bloco:** a escolha de 6 colunas entre as 30. Gera **{n.JOGOS_POR_BLOCO} jogos** "
-        f"(as 2 dezenas de cada coluna se alternam).\n"
-        f"- **Lote:** o conjunto de todos os blocos do apostador: **{milhar(n.TOTAL_BLOCOS)} blocos**, "
+        "- **Jogo:** 6 dezenas, uma de cada coluna do lote. A dezena fica na posição da sua coluna: "
+        "as dezenas de **N1 ficam sempre na 1ª posição**, independente do valor, e as demais colunas "
+        "ocupam a posição que têm dentro do lote (da menor para a maior). Os jogos não seguem ordem crescente.\n"
+        f"- **Lote:** a escolha de 6 colunas entre as 30. Gera **{n.JOGOS_POR_BLOCO} jogos**: cada coluna "
+        "contribui com as suas 2 dezenas, 32 vezes cada, em ordem sorteada (sem padrão alternado).\n"
+        f"- **Conjunto:** todos os lotes do apostador: **{milhar(n.TOTAL_BLOCOS)} lotes**, "
         f"ou **{milhar(n.TOTAL_JOGOS)} jogos**. É o que você gera, baixa e confere.\n"
-        "- O **código do apostador** e as **âncoras** definem a ordem dos jogos: "
-        "mesmo código e mesmas âncoras sempre geram o mesmo lote."
+        "- O **código do apostador** e as **âncoras** definem a ordem dos lotes e dos jogos: "
+        "mesmo código e mesmas âncoras sempre geram o mesmo conjunto."
     )
 
 st.subheader("Configuração das Âncoras (30 Colunas / 2 Dezenas por Coluna)")
 st.caption(
-    "As 60 dezenas (01 a 60) devem ser todas diferentes. Cada bloco usa 6 colunas e, de cada uma, "
-    "as 2 dezenas se alternam (32 jogos cada). Edite as células da tabela para mudar as âncoras."
+    "As 60 dezenas (01 a 60) devem ser todas diferentes, em qualquer ordem. Cada lote usa 6 colunas; "
+    "de cada uma, as 2 dezenas aparecem 32 vezes cada, em ordem sorteada. "
+    "Edite as células da tabela para mudar as âncoras."
 )
 
 if "versao_ancoras" not in st.session_state:
@@ -414,7 +419,7 @@ for problema in problemas:
 st.divider()
 
 if st.button(
-    f"🚀 Gerar o Lote ({milhar(n.TOTAL_BLOCOS)} blocos · {milhar(n.TOTAL_JOGOS)} jogos)",
+    f"🚀 Gerar o Conjunto ({milhar(n.TOTAL_BLOCOS)} lotes · {milhar(n.TOTAL_JOGOS)} jogos)",
     type="primary",
     key="btn_gerar",
     disabled=bool(problemas),
@@ -433,13 +438,13 @@ if st.button(
         }
         st.session_state.pop("arquivo", None)
         st.success(
-            f"✅ Lote gerado para o apostador {codigo}: {milhar(n.TOTAL_BLOCOS)} blocos, "
-            f"{milhar(n.TOTAL_JOGOS)} jogos. Use as abas abaixo para ver um bloco ou baixar os jogos."
+            f"✅ Conjunto gerado para o apostador {codigo}: {milhar(n.TOTAL_BLOCOS)} lotes, "
+            f"{milhar(n.TOTAL_JOGOS)} jogos. Use as abas abaixo para ver um lote ou baixar os jogos."
         )
 
 resultado = st.session_state.get("resultado")
 if resultado:
     if resultado["codigo"] != codigo_apostador.strip() or resultado["ancoras"] != colunas_cfg:
-        st.info("As âncoras ou o código foram alterados. Clique em gerar para criar o novo lote.")
+        st.info("As âncoras ou o código foram alterados. Clique em gerar para criar o novo conjunto.")
     mostrar_resultado(resultado)
     mostrar_conferidor(resultado)

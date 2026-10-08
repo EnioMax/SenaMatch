@@ -25,8 +25,11 @@ import numpy as np
 NUM_COLUNAS = 30
 COLUNAS_POR_BLOCO = 6
 DEZENAS_POR_COLUNA = 2
-JOGOS_POR_BLOCO = DEZENAS_POR_COLUNA**COLUNAS_POR_BLOCO  # 64
+JOGOS_POR_BLOCO = 64
+JOGOS_POR_LOTE = 8  # Novo agrupamento
+SUB_LOTES_POR_BLOCO = JOGOS_POR_BLOCO // JOGOS_POR_LOTE  # 8 sub-lotes por combinação
 TOTAL_BLOCOS = comb(NUM_COLUNAS, COLUNAS_POR_BLOCO)  # 593.775
+TOTAL_LOTES = TOTAL_BLOCOS * SUB_LOTES_POR_BLOCO  # 4.750.200
 TOTAL_JOGOS = TOTAL_BLOCOS * JOGOS_POR_BLOCO  # 38.001.600
 JOGOS_POR_DEZENA = comb(NUM_COLUNAS - 1, COLUNAS_POR_BLOCO - 1) * JOGOS_POR_BLOCO // DEZENAS_POR_COLUNA
 DEZENA_MIN, DEZENA_MAX = 1, 60
@@ -41,8 +44,8 @@ TOTAL_ZIPS = ceil(TOTAL_ARQUIVOS / ARQUIVOS_POR_ZIP)
 
 PADRAO_ANCORAS = [[2 * i + 1, 2 * i + 2] for i in range(NUM_COLUNAS)]
 
-CABECALHO_CSV = "Bloco;Jogo;" + ";".join(f"N{c}" for c in range(1, NUM_COLUNAS + 1)) + "\n"
-BYTES_PREFIXO_CSV = 10  # 'BBBBBB;JJ;'
+CABECALHO_CSV = "Lote;Jogo;" + ";".join(f"D{k}" for k in range(1, COLUNAS_POR_BLOCO + 1)) + "\n"
+BYTES_PREFIXO_CSV = 11  # 'LLLLLLL;JJ;'
 
 # Jogo k (0..63) escolhe, na coluna j, a dezena de índice = bit j de k
 BITS = ((np.arange(JOGOS_POR_BLOCO)[:, None] >> np.arange(COLUNAS_POR_BLOCO - 1, -1, -1)) & 1).astype(np.intp)
@@ -168,31 +171,33 @@ def _escrever_2(saida: np.ndarray, col: int, valores: np.ndarray) -> None:
 
 
 def gerar_csv(ancoras: list[list[int]], semente: int, numero_arquivo: int) -> bytes:
-    """CSV (separador ';', abre direto no Excel) com os blocos do arquivo, linhas de largura fixa."""
+    """CSV (separador ';', abre direto no Excel): Lote;Jogo;D1..D6, linhas de largura fixa."""
     ini, fim = intervalo_do_arquivo(numero_arquivo)
     posicoes = np.arange(ini, fim)
-    colunas, jogos = gerar_blocos(ancoras_para_array(ancoras), semente, posicoes)
-    n = len(posicoes) * JOGOS_POR_BLOCO
+    _, jogos = gerar_blocos(ancoras_para_array(ancoras), semente, posicoes)
+    n_blocos = len(posicoes)
+    total_jogos_arquivo = n_blocos * JOGOS_POR_BLOCO
 
-    saida = np.full((n, BYTES_PREFIXO_CSV), ord(";"), dtype=np.uint8)
-    bloco = np.repeat(posicoes + 1, JOGOS_POR_BLOCO)
-    for k in range(6):
-        saida[:, 5 - k] = 48 + (bloco // 10**k) % 10
-    _escrever_2(saida, 7, np.tile(np.arange(1, JOGOS_POR_BLOCO + 1), len(posicoes)))
-    # Cada dezena vai para a sua coluna (N1..N30); as colunas fora do bloco ficam vazias
-    cols_linha = np.repeat(colunas.astype(np.int64), JOGOS_POR_BLOCO, axis=0)
-    flat = jogos.reshape(n, 6).astype(np.int64)
-    linhas = np.arange(n)[:, None]
-    celulas = np.full((n, NUM_COLUNAS, 3), ord(";"), dtype=np.uint8)
-    celulas[linhas, cols_linha, 0] = 48 + flat // 10
-    celulas[linhas, cols_linha, 1] = 48 + flat % 10
-    ocupada = np.zeros((n, NUM_COLUNAS, 3), dtype=bool)
-    ocupada[linhas, cols_linha, 0] = True
-    ocupada[linhas, cols_linha, 1] = True
-    ocupada[:, :, 2] = True
-    resto = celulas.reshape(n, -1)[ocupada.reshape(n, -1)].reshape(n, -1)
-    resto[:, -1] = ord("\n")
-    saida = np.concatenate([saida, resto], axis=1)
+    saida = np.full((total_jogos_arquivo, BYTES_PREFIXO_CSV + 3 * COLUNAS_POR_BLOCO), ord(";"), dtype=np.uint8)
+    
+    # Lote agora vai de 1 a 4.750.200
+    # Cada bloco i gera os lotes (i*8 + 1) até (i*8 + 8)
+    lotes_base = (posicoes * SUB_LOTES_POR_BLOCO) + 1
+    lotes_repetidos = np.repeat(lotes_base, JOGOS_POR_BLOCO)
+    incremento_lote = np.tile(np.repeat(np.arange(SUB_LOTES_POR_BLOCO), JOGOS_POR_LOTE), n_blocos)
+    lotes_finais = lotes_repetidos + incremento_lote
+    
+    for k in range(7): # Suporta até 7 dígitos (4.750.200)
+        saida[:, 6 - k] = 48 + (lotes_finais // 10**k) % 10
+    
+    # Jogo agora vai de 1 a 8 dentro de cada lote
+    jogos_id = np.tile(np.arange(1, JOGOS_POR_LOTE + 1), n_blocos * SUB_LOTES_POR_BLOCO)
+    _escrever_2(saida, 8, jogos_id)
+    
+    dezenas = jogos.reshape(total_jogos_arquivo, COLUNAS_POR_BLOCO).astype(np.int64)
+    for k in range(COLUNAS_POR_BLOCO):
+        _escrever_2(saida, BYTES_PREFIXO_CSV + 3 * k, dezenas[:, k])
+    saida[:, -1] = ord("\n")
     return CABECALHO_CSV.encode() + saida.tobytes()
 
 
@@ -271,7 +276,11 @@ def resumir_sorteio(ancoras: list[list[int]], sorteio: tuple[int, ...]) -> dict:
             for j in range(i1 + 1):
                 if i2 + j >= 4:
                     contagem[i2 + j] += blocos * comb(i1, j) * 2 ** (i2 + i0)
-    return {"contagem": contagem, "melhor": min(a1 + a2, COLUNAS_POR_BLOCO)}
+    return {
+        "contagem": contagem,
+        "melhor": min(a1 + a2, COLUNAS_POR_BLOCO),
+        "cobertura": {"duplos": a2, "simples": a1},
+    }
 
 
 def conferir_sorteio(ancoras: list[list[int]], semente: int, sorteio: tuple[int, ...]) -> dict:
@@ -291,21 +300,28 @@ def conferir_sorteio(ancoras: list[list[int]], semente: int, sorteio: tuple[int,
     # Cada coluna conta no máximo 1 acerto por jogo, e todo conjunto de colunas é um bloco.
     melhor = int(ativa.sum())
 
+    # Cada jogo só tem 4+ acertos se seu bloco tiver 4+ colunas que contenham dezenas sorteadas
     candidatos = np.flatnonzero(ativa[todas_combinacoes()].sum(axis=1) >= 4)
-    posicoes = np.sort(posicao_dos_blocos(semente)[candidatos]).astype(np.int64)
-    _, jogos = gerar_blocos(anc, semente, posicoes)
+    posicoes_blocos = np.sort(posicao_dos_blocos(semente)[candidatos]).astype(np.int64)
+    _, jogos = gerar_blocos(anc, semente, posicoes_blocos)
 
     acertos = sorteadas[jogos].sum(axis=2)  # (n, 64)
-    b, j = np.nonzero(acertos >= 4)
-    n_acertos = acertos[b, j].astype(np.int64)
-    ordem = np.lexsort((j, posicoes[b], -n_acertos))
-    b, j, n_acertos = b[ordem], j[ordem], n_acertos[ordem]
+    b_idx, j_idx = np.nonzero(acertos >= 4)
+    n_acertos = acertos[b_idx, j_idx].astype(np.int64)
+    
+    # Traduz índices de bloco e jogo (0-63) para os novos Lotes (1-4.7M) e Jogos (1-8)
+    lotes_reais = (posicoes_blocos[b_idx] * SUB_LOTES_POR_BLOCO) + (j_idx // JOGOS_POR_LOTE) + 1
+    jogos_reais = (j_idx % JOGOS_POR_LOTE) + 1
+
+    ordem = np.lexsort((jogos_reais, lotes_reais, -n_acertos))
+    lotes_reais, jogos_reais, n_acertos = lotes_reais[ordem], jogos_reais[ordem], n_acertos[ordem]
 
     return {
         "melhor": min(melhor, 6),
         "contagem": {k: int((n_acertos == k).sum()) for k in (4, 5, 6)},
-        "blocos": posicoes[b] + 1,
-        "jogos": j + 1,
-        "dezenas": jogos[b, j],
+        "blocos": lotes_reais,
+        "jogos": jogos_reais,
+        "dezenas": jogos[b_idx[ordem], j_idx[ordem]],
         "acertos": n_acertos,
+        "cobertura": {"duplos": a2, "simples": a1},
     }

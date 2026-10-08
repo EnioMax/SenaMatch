@@ -58,17 +58,18 @@ def test_distribuicao_igual_e_sem_repeticao():
 def test_csv():
     linhas = n.gerar_csv(n.PADRAO_ANCORAS, SEMENTE, 40).decode().splitlines()
     ini, fim = n.intervalo_do_arquivo(40)
-    assert linhas[0] == "Bloco;Jogo;" + ";".join(f"N{c}" for c in range(1, 31))
+    # Cabeçalho: Lote;Jogo;D1;D2;D3;D4;D5;D6
+    assert linhas[0].strip() == n.CABECALHO_CSV.strip()
     assert len(linhas) == 1 + (fim - ini) * 64
     campos = linhas[1].split(";")
-    assert campos[0] == f"{ini + 1:06d}" and campos[1] == "01" and len(campos) == 32
+    # Lote (6 chars), Jogo (2 chars), 6 dezenas = 8 campos
+    assert campos[0] == f"{ini + 1:06d}" and campos[1] == "01" and len(campos) == 8
+    
     colunas, jogos = n.gerar_blocos(ANC, SEMENTE, np.array([ini]))
-    for c in range(30):
-        celula = campos[2 + c]
-        assert (int(celula) in ANC[c]) if c in colunas[0] else celula == ""
-    for linha in linhas[1:500]:
-        for c, celula in enumerate(linha.split(";")[2:]):
-            assert celula == "" or int(celula) in ANC[c]
+    # Verifica se as dezenas na primeira linha do CSV batem com o esperado para o bloco
+    dezenas_csv = [int(c) for c in campos[2:]]
+    assert list(dezenas_csv) == list(jogos[0, 0])
+
     assert linhas[-1].split(";")[0] == f"{fim:06d}" and linhas[-1].split(";")[1] == "64"
     linhas1 = n.gerar_csv(n.PADRAO_ANCORAS, SEMENTE, 1).decode().splitlines()
     assert len(linhas1) == 1 + 960_000
