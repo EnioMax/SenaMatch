@@ -41,8 +41,8 @@ TOTAL_ZIPS = ceil(TOTAL_ARQUIVOS / ARQUIVOS_POR_ZIP)
 
 PADRAO_ANCORAS = [[2 * i + 1, 2 * i + 2] for i in range(NUM_COLUNAS)]
 
-CABECALHO_CSV = "Bloco;Jogo;Colunas;D1;D2;D3;D4;D5;D6\n"
-BYTES_POR_LINHA_CSV = 46
+CABECALHO_CSV = "Bloco;Jogo;" + ";".join(f"N{c}" for c in range(1, NUM_COLUNAS + 1)) + "\n"
+BYTES_PREFIXO_CSV = 10  # 'BBBBBB;JJ;'
 
 # Jogo k (0..63) escolhe, na coluna j, a dezena de índice = bit j de k
 BITS = ((np.arange(JOGOS_POR_BLOCO)[:, None] >> np.arange(COLUNAS_POR_BLOCO - 1, -1, -1)) & 1).astype(np.intp)
@@ -174,18 +174,25 @@ def gerar_csv(ancoras: list[list[int]], semente: int, numero_arquivo: int) -> by
     colunas, jogos = gerar_blocos(ancoras_para_array(ancoras), semente, posicoes)
     n = len(posicoes) * JOGOS_POR_BLOCO
 
-    saida = np.full((n, BYTES_POR_LINHA_CSV), ord(";"), dtype=np.uint8)
-    saida[:, -1] = ord("\n")
+    saida = np.full((n, BYTES_PREFIXO_CSV), ord(";"), dtype=np.uint8)
     bloco = np.repeat(posicoes + 1, JOGOS_POR_BLOCO)
     for k in range(6):
         saida[:, 5 - k] = 48 + (bloco // 10**k) % 10
     _escrever_2(saida, 7, np.tile(np.arange(1, JOGOS_POR_BLOCO + 1), len(posicoes)))
-    cols_linha = np.repeat(colunas.astype(np.int64) + 1, JOGOS_POR_BLOCO, axis=0)
+    # Cada dezena vai para a sua coluna (N1..N30); as colunas fora do bloco ficam vazias
+    cols_linha = np.repeat(colunas.astype(np.int64), JOGOS_POR_BLOCO, axis=0)
     flat = jogos.reshape(n, 6).astype(np.int64)
-    for k in range(6):
-        _escrever_2(saida, 10 + 3 * k, cols_linha[:, k])
-        saida[:, 10 + 3 * k + 2] = ord(" ") if k < 5 else ord(";")
-        _escrever_2(saida, 28 + 3 * k, flat[:, k])
+    linhas = np.arange(n)[:, None]
+    celulas = np.full((n, NUM_COLUNAS, 3), ord(";"), dtype=np.uint8)
+    celulas[linhas, cols_linha, 0] = 48 + flat // 10
+    celulas[linhas, cols_linha, 1] = 48 + flat % 10
+    ocupada = np.zeros((n, NUM_COLUNAS, 3), dtype=bool)
+    ocupada[linhas, cols_linha, 0] = True
+    ocupada[linhas, cols_linha, 1] = True
+    ocupada[:, :, 2] = True
+    resto = celulas.reshape(n, -1)[ocupada.reshape(n, -1)].reshape(n, -1)
+    resto[:, -1] = ord("\n")
+    saida = np.concatenate([saida, resto], axis=1)
     return CABECALHO_CSV.encode() + saida.tobytes()
 
 
