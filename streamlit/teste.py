@@ -57,34 +57,21 @@ def obter_segredo() -> tuple[str, bool]:
 # Exibição
 # ----------------------------------------------------------------------
 def html_bloco(colunas: np.ndarray, jogos: np.ndarray, ancoras: np.ndarray) -> str:
-    """Os 64 jogos de um bloco em N1..N30: cada dezena aparece sob a sua coluna."""
-    cor_da_coluna = {int(c): CORES[k] for k, c in enumerate(colunas)}
-    celula = "padding:2px 3px;text-align:center;"
-    bola = (
-        "display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;"
-        "border-radius:50%;font-weight:600;font-size:12px;color:#fff;box-sizing:border-box;"
-    )
-    cabecalho = "".join(
-        f'<th style="{celula}font-size:11px;'
-        + (f'color:{cor_da_coluna[c]};' if c in cor_da_coluna else "opacity:.45;")
-        + f'">N{c + 1}</th>'
-        for c in range(n.NUM_COLUNAS)
-    )
+    """Os 64 jogos de um bloco; a cor de cada dezena indica a coluna de origem."""
+    cor_da_dezena = {int(d): CORES[k] for k, c in enumerate(colunas) for d in ancoras[c]}
     linhas = []
     for num, jogo in enumerate(jogos, start=1):
-        por_coluna = {}
-        for d in jogo:
-            por_coluna[next(c for c in cor_da_coluna if int(d) in ancoras[c])] = int(d)
-        celulas = "".join(
-            f'<td style="{celula}">'
-            + (f'<span style="{bola}background:{cor_da_coluna[c]};">{por_coluna[c]:02d}</span>' if c in por_coluna else "")
-            + "</td>"
-            for c in range(n.NUM_COLUNAS)
+        bolas = "".join(
+            f'<span style="{ESTILO_BOLA}background:{cor_da_dezena[int(d)]};color:#fff;">{int(d):02d}</span>'
+            for d in jogo
         )
-        linhas.append(f'<tr><td style="padding:2px 8px 2px 0;font-weight:600;white-space:nowrap;">Jogo {num:02d}</td>{celulas}</tr>')
+        linhas.append(
+            '<div style="display:flex;align-items:center;gap:6px;margin:4px 0;">'
+            f'<span style="min-width:70px;font-weight:600;">Jogo {num:02d}</span>{bolas}</div>'
+        )
     return (
-        '<div style="overflow-x:auto;"><table style="border-collapse:collapse;">'
-        f'<thead><tr><th></th>{cabecalho}</tr></thead><tbody>' + "".join(linhas) + "</tbody></table></div>"
+        '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));'
+        'column-gap:24px;">' + "".join(linhas) + "</div>"
     )
 
 
@@ -141,14 +128,14 @@ def mostrar_resultado(res: dict) -> None:
             for k, c in enumerate(colunas[0])
         )
         st.markdown(f"Colunas do bloco {int(bloco):06d}: {legenda}", unsafe_allow_html=True)
-        st.caption("Cada dezena aparece sob a sua coluna (N1 a N30); as colunas fora do bloco ficam vazias.")
+        st.caption("Cada jogo usa 1 dezena de cada coluna do bloco; a cor indica a coluna de origem.")
         st.markdown(html_bloco(colunas[0], jogos[0], ancoras), unsafe_allow_html=True)
 
     with aba_arquivos:
         st.write(
             f"O lote tem {milhar(n.TOTAL_JOGOS)} jogos, divididos em **{n.TOTAL_ARQUIVOS} arquivos CSV** de até "
             f"{milhar(n.BLOCOS_POR_ARQUIVO * n.JOGOS_POR_BLOCO)} jogos (cabem em uma planilha do Excel). "
-            "Colunas: Bloco, Jogo e N1 a N30: cada dezena fica sob a sua coluna e as colunas fora do bloco ficam vazias."
+            "Colunas: Bloco, Jogo, Colunas do bloco e D1 a D6."
         )
         formato = st.radio(
             "Como baixar",
