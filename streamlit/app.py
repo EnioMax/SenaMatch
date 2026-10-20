@@ -9,9 +9,7 @@ Regra do conjunto:
   - Distribuição: os jogos são redistribuídos em 593.775 LOTES de 64 por herança. O jogo 1 de cada
     lote fica, e o jogo k vem do bloco (L + (k-1) x 9.277) mod 593.775, na mesma posição k.
     Nenhum jogo se repete. A regra é fixa (sem sorteio).
-  - Posição: a dezena ocupa no jogo a posição da sua coluna dentro do jogo (colunas em ordem
-    crescente). As dezenas de N1 ficam sempre na 1ª posição, independente do valor.
-    Os jogos não seguem ordem crescente.
+  - Cada jogo mostra as 6 dezenas em ordem crescente (menor à esquerda), como o resultado do sorteio.
 
 O código do apostador e o segredo do servidor definem a ORDEM dos blocos e dos jogos
 (HMAC). Mesmo código + mesmas âncoras -> sempre o mesmo conjunto.
@@ -76,7 +74,7 @@ def html_bloco(colunas: np.ndarray, jogos: np.ndarray) -> str:
         "border-radius:50%;font-weight:600;font-size:14px;color:#fff;box-sizing:border-box;"
     )
     cabecalho = "".join(
-        f'<th style="{celula}font-size:11px;line-height:1.3;color:{CORES[k]};">{k + 1}ª</th>' for k in range(6)
+        f'<th style="{celula}font-size:11px;line-height:1.3;color:{CORES[k]};">D{k + 1}</th>' for k in range(6)
     )
     linhas = []
     for num, (jogo, cols) in enumerate(zip(jogos, colunas), start=1):
@@ -142,9 +140,8 @@ def mostrar_resultado(res: dict) -> None:
         st.markdown(f"**Lote {int(bloco):06d}**: 64 jogos")
         st.caption(
             "O jogo 1 pertence a este lote; cada um dos outros 63 jogos é herdado de um lote diferente, "
-            "sempre da mesma posição, e nenhum jogo do conjunto se repete. Cada jogo tem 6 dezenas, da 1ª à 6ª "
-            "posição (a ordem da coluna dentro do jogo, da menor para a maior); passe o mouse sobre uma dezena "
-            "para ver a coluna de origem (N1 a N30). Os jogos não seguem ordem crescente."
+            "sempre da mesma posição, e nenhum jogo do conjunto se repete. Cada jogo tem 6 dezenas em "
+            "ordem crescente (menor à esquerda); passe o mouse sobre uma dezena para ver a coluna de origem (N1 a N30)."
         )
         st.markdown(html_bloco(colunas[0], jogos[0]), unsafe_allow_html=True)
 
@@ -152,7 +149,7 @@ def mostrar_resultado(res: dict) -> None:
         st.write(
             f"O conjunto tem {milhar(n.TOTAL_JOGOS)} jogos, divididos em **{n.TOTAL_ARQUIVOS} arquivos CSV** de até "
             f"{milhar(n.BLOCOS_POR_ARQUIVO * n.JOGOS_POR_BLOCO)} jogos (cabem em uma planilha do Excel). "
-            "Colunas: Lote, Jogo e D1 a D6 (as 6 dezenas do jogo, da 1ª à 6ª posição)."
+            "Colunas: Lote, Jogo e D1 a D6 (as 6 dezenas do jogo, em ordem crescente)."
         )
         formato = st.radio(
             "Como baixar",
@@ -372,9 +369,8 @@ st.write(
 )
 with st.expander("ℹ️ Como funciona: conjunto, lote e jogo", expanded=True):
     st.markdown(
-        "- **Jogo:** 6 dezenas, uma de cada coluna do lote. A dezena fica na posição da sua coluna: "
-        "as dezenas de **N1 ficam sempre na 1ª posição**, independente do valor, e as demais colunas "
-        "ocupam a posição que têm dentro do jogo (da menor para a maior). Os jogos não seguem ordem crescente.\n"
+        "- **Jogo:** 6 dezenas, uma de cada coluna do bloco, exibidas em ordem crescente "
+        "(menor à esquerda), como o resultado do sorteio.\n"
         f"- **Bloco:** a escolha de 6 colunas entre as 30. Gera **{n.JOGOS_POR_BLOCO} jogos**: cada coluna "
         "contribui com as suas 2 dezenas, 32 vezes cada.\n"
         f"- **Lote:** {n.JOGOS_POR_BLOCO} jogos. O 1º é do próprio bloco e cada um dos outros 63 é herdado "

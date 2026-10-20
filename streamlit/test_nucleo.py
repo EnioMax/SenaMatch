@@ -68,9 +68,7 @@ def test_csv():
     colunas, jogos = n.gerar_blocos(ANC, SEMENTE, np.array([ini]))
     # Verifica se as dezenas na primeira linha do CSV batem com o esperado para o bloco
     dezenas_csv = [int(c) for c in campos[2:]]
-    assert list(dezenas_csv) == list(jogos[0, 0])
-    _, lote_ini = n.gerar_lotes(ANC, SEMENTE, np.array([ini]))
-    assert [int(c) for c in linhas[2].split(";")[2:]] == list(lote_ini[0, 1])
+    assert list(dezenas_csv) == sorted(jogos[0, 0])
     _, lote_ini = n.gerar_lotes(ANC, SEMENTE, np.array([ini]))
     assert [int(c) for c in linhas[2].split(";")[2:]] == list(lote_ini[0, 1])
 
@@ -91,11 +89,12 @@ def test_lotes_por_heranca():
     assert jogos.shape == (4, 64, 6) and colunas.shape == (4, 64, 6)
     for i, lote in enumerate(lotes):
         assert len({tuple(j) for j in jogos[i]}) == 64  # sem repetição dentro do lote
+        assert (np.diff(jogos[i].astype(int), axis=1) > 0).all()  # dezenas em ordem crescente
         # jogo 1 fica: é o jogo 1 do bloco de mesma posição
-        assert list(jogos[i, 0]) == list(n.gerar_blocos(ANC, SEMENTE, np.array([lote]))[1][0, 0])
+        assert list(jogos[i, 0]) == sorted(n.gerar_blocos(ANC, SEMENTE, np.array([lote]))[1][0, 0])
         for k in (1, 2, 63):  # o jogo k é herdado do jogo k de outro bloco
             origem = (lote + k * p) % n.TOTAL_BLOCOS
-            assert list(jogos[i, k]) == list(n.gerar_blocos(ANC, SEMENTE, np.array([origem]))[1][0, k])
+            assert list(jogos[i, k]) == sorted(n.gerar_blocos(ANC, SEMENTE, np.array([origem]))[1][0, k])
             assert origem != lote
         for jogo, cols in zip(jogos[i], colunas[i]):
             assert all(int(d) in ANC[c] for d, c in zip(jogo, cols))
@@ -108,6 +107,16 @@ def test_lotes_por_heranca():
         _, js = n.gerar_lotes(ANC, SEMENTE, np.arange(ini, min(ini + 20_000, n.TOTAL_BLOCOS)))
         contagem += np.bincount(js.ravel(), minlength=61)
     assert set(contagem[1:]) == {n.JOGOS_POR_DEZENA}
+
+
+def test_csv_dezenas_crescentes():
+    pares = list(range(60, 0, -1))
+    ancoras = [pares[i : i + 2] for i in range(0, 60, 2)]
+    semente = n.criar_semente("s", "7", ancoras)
+    linhas = n.gerar_csv(ancoras, semente, 40).decode().splitlines()[1:2000]
+    for linha in linhas:
+        dz = [int(c) for c in linha.split(";")[2:]]
+        assert dz == sorted(dz) and len(set(dz)) == 6
 
 
 def test_zip():

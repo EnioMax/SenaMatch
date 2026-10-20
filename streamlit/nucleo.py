@@ -176,7 +176,8 @@ def gerar_lotes(ancoras: np.ndarray, semente: int, lotes: np.ndarray) -> tuple[n
     O jogo k do lote L é o jogo de mesma posição k do bloco de origem (L + k*PASSO) mod 593.775.
     O jogo 1 (k=0) fica no próprio lote; os demais vêm de outros lotes. Para cada k isso é uma
     rotação da lista de blocos, logo cada jogo do conjunto aparece exatamente uma vez.
-    Retorna (colunas (n,64,6), jogos (n,64,6)): as colunas de origem de cada jogo e as dezenas.
+    Retorna (colunas (n,64,6), jogos (n,64,6)): as colunas de origem de cada jogo e as dezenas,
+    com as 6 dezenas de cada jogo em ordem crescente (colunas acompanham as dezenas).
     """
     lotes = np.asarray(lotes, dtype=np.int64)
     k = np.arange(JOGOS_POR_BLOCO, dtype=np.int64)
@@ -186,7 +187,8 @@ def gerar_lotes(ancoras: np.ndarray, semente: int, lotes: np.ndarray) -> tuple[n
     por_coluna = ancoras[colunas]  # (n, 64, 6, 2)
     escolha = BITS[padrao][..., None]  # (n, 64, 6, 1)
     jogos = np.take_along_axis(por_coluna, escolha, axis=3)[..., 0]
-    return colunas, jogos
+    crescente = np.argsort(jogos, axis=-1)
+    return np.take_along_axis(colunas, crescente, axis=-1), np.take_along_axis(jogos, crescente, axis=-1)
 
 
 # ----------------------------------------------------------------------
@@ -342,7 +344,7 @@ def conferir_sorteio(ancoras: list[list[int]], semente: int, sorteio: tuple[int,
         "contagem": {k: int((n_acertos == k).sum()) for k in (4, 5, 6)},
         "blocos": lotes + 1,
         "jogos": j + 1,
-        "dezenas": jogos[b, j],
+        "dezenas": np.sort(jogos[b, j], axis=-1),
         "acertos": n_acertos,
         "cobertura": {"duplos": a2, "simples": a1},
     }
