@@ -18,6 +18,7 @@ O código do apostador e o segredo do servidor definem a ORDEM dos blocos e dos 
 Os jogos são gerados sob demanda e entregues em arquivos CSV (cabem no Excel).
 
 Segredo: defina SENAMATCH_SECRET em st.secrets (Streamlit Cloud) ou como variável de ambiente.
+O app não inicia sem ele; para testes locais use SENAMATCH_DEV=1.
 """
 
 import os
@@ -48,15 +49,20 @@ ESTILO_BOLA = (
 # Segredo
 # ----------------------------------------------------------------------
 def obter_segredo() -> tuple[str, bool]:
-    """Retorna (segredo, seguro). 'seguro' é False no modo de desenvolvimento."""
+    """Retorna (segredo, seguro). Sem segredo configurado, o app para (falha fechada).
+
+    O modo de desenvolvimento só existe com SENAMATCH_DEV=1 no ambiente (nunca no deploy).
+    """
     try:
-        return str(st.secrets["SENAMATCH_SECRET"]), True
+        segredo = str(st.secrets["SENAMATCH_SECRET"])
     except Exception:
-        pass
-    segredo = os.environ.get("SENAMATCH_SECRET")
+        segredo = os.environ.get("SENAMATCH_SECRET", "")
     if segredo:
         return segredo, True
-    return "segredo-de-desenvolvimento", False
+    if os.environ.get("SENAMATCH_DEV") == "1":
+        return "segredo-de-desenvolvimento", False
+    st.error("Configuração incompleta: defina SENAMATCH_SECRET (Secrets do Streamlit ou variável de ambiente).")
+    st.stop()
 
 
 # ----------------------------------------------------------------------
@@ -355,7 +361,7 @@ with st.sidebar:
     codigo_apostador = st.text_input("Código do Apostador Base", value="593775", key="codigo_apostador")
     if not segredo_seguro:
         st.warning(
-            "Modo de desenvolvimento: defina SENAMATCH_SECRET para que os conjuntos "
+            "Modo de desenvolvimento (SENAMATCH_DEV=1): defina SENAMATCH_SECRET para que os conjuntos "
             "sejam exclusivos e não reproduzíveis por terceiros."
         )
 
