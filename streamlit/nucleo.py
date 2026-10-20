@@ -5,6 +5,8 @@ Estrutura:
   - 30 colunas (N1..N30), cada uma com 2 dezenas âncora (as 60 dezenas, todas distintas).
   - Um BLOCO é a escolha de 6 colunas entre as 30: C(30,6) = 593.775 blocos.
   - Cada bloco gera 2^6 = 64 jogos (1 dezena de cada coluna escolhida): 38.001.600 jogos.
+  - Os 64 jogos (já embaralhados) de cada bloco são divididos em 8 LOTES de 8 jogos:
+    4.750.200 lotes no conjunto. O lote L (1-based) é o sub-lote (L-1) % 8 do bloco (L-1) // 8.
   - Cada dezena aparece no mesmo número de jogos (3.800.160): igualdade exata.
 
 O código do apostador e o segredo (HMAC) definem a ORDEM dos blocos e a ordem dos
@@ -296,6 +298,7 @@ def conferir_sorteio(ancoras: list[list[int]], semente: int, sorteio: tuple[int,
     sorteadas[list(sorteio)] = True
 
     por_coluna = sorteadas[anc].sum(axis=1)  # (30,): dezenas sorteadas em cada coluna
+    a2, a1 = int((por_coluna == 2).sum()), int((por_coluna == 1).sum())
     ativa = por_coluna > 0
     # Cada coluna conta no máximo 1 acerto por jogo, e todo conjunto de colunas é um bloco.
     melhor = int(ativa.sum())

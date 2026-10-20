@@ -16,6 +16,8 @@ def test_constantes():
     assert n.TOTAL_JOGOS == 38_001_600
     assert n.JOGOS_POR_DEZENA == 3_800_160
     assert n.TOTAL_ARQUIVOS == 40
+    assert n.JOGOS_POR_LOTE == 8 and n.SUB_LOTES_POR_BLOCO == 8
+    assert n.TOTAL_LOTES == 4_750_200
 
 
 def test_ordem_e_reprodutibilidade():
@@ -62,15 +64,17 @@ def test_csv():
     assert linhas[0].strip() == n.CABECALHO_CSV.strip()
     assert len(linhas) == 1 + (fim - ini) * 64
     campos = linhas[1].split(";")
-    # Lote (6 chars), Jogo (2 chars), 6 dezenas = 8 campos
-    assert campos[0] == f"{ini + 1:06d}" and campos[1] == "01" and len(campos) == 8
-    
-    colunas, jogos = n.gerar_blocos(ANC, SEMENTE, np.array([ini]))
-    # Verifica se as dezenas na primeira linha do CSV batem com o esperado para o bloco
-    dezenas_csv = [int(c) for c in campos[2:]]
-    assert list(dezenas_csv) == list(jogos[0, 0])
+    # Lote (7 chars), Jogo (2 chars), 6 dezenas = 8 campos; 8 jogos por lote
+    assert campos[0] == f"{ini * 8 + 1:07d}" and campos[1] == "01" and len(campos) == 8
 
-    assert linhas[-1].split(";")[0] == f"{fim:06d}" and linhas[-1].split(";")[1] == "64"
+    _, jogos = n.gerar_blocos(ANC, SEMENTE, np.array([ini]))
+    assert [int(c) for c in campos[2:]] == list(jogos[0, 0])
+    # 64 jogos do bloco = 8 lotes consecutivos de 8 jogos
+    esperado = [(ini * 8 + 1 + k // 8, k % 8 + 1) for k in range(64)]
+    obtido = [(int(l.split(";")[0]), int(l.split(";")[1])) for l in linhas[1:65]]
+    assert obtido == esperado
+
+    assert linhas[-1].split(";")[0] == f"{fim * 8:07d}" and linhas[-1].split(";")[1] == "08"
     linhas1 = n.gerar_csv(n.PADRAO_ANCORAS, SEMENTE, 1).decode().splitlines()
     assert len(linhas1) == 1 + 960_000
 
@@ -105,7 +109,7 @@ def test_resumo_rapido_aleatorio():
         sorteio = tuple(sorted(rnd.sample(range(1, 61), 6)))
         rapido = n.resumir_sorteio(n.PADRAO_ANCORAS, sorteio)
         completo = n.conferir_sorteio(n.PADRAO_ANCORAS, SEMENTE, sorteio)
-        assert rapido == {"contagem": completo["contagem"], "melhor": completo["melhor"]}, sorteio
+        assert rapido == {k: completo[k] for k in ("contagem", "melhor", "cobertura")}, sorteio
 
 
 def forca_bruta(ancoras, semente, sorteio):
@@ -139,16 +143,18 @@ def test_conferidor_contra_forca_bruta():
         extras = [tuple(sorted(int(d) for d in anc[list(c)][:, 0])) for c in ([0, 1, 2, 3, 4, 5], [3, 9, 12, 20, 25, 29])]
         for sorteio in sorteios + extras:
             r = n.conferir_sorteio(ancoras, semente, sorteio)
-            assert n.resumir_sorteio(ancoras, sorteio) == {"contagem": r["contagem"], "melhor": r["melhor"]}
+            assert n.resumir_sorteio(ancoras, sorteio) == {k: r[k] for k in ("contagem", "melhor", "cobertura")}
             cont, melhor = forca_bruta(ancoras, semente, sorteio)
             assert r["contagem"] == cont, (sorteio, r["contagem"], cont)
             assert r["melhor"] == melhor, (sorteio, r["melhor"], melhor)
             assert len(r["acertos"]) == sum(cont.values())
             assert (np.diff(r["acertos"]) <= 0).all()
             if len(r["acertos"]):
-                d, b, j = r["dezenas"][0], r["blocos"][0], r["jogos"][0]
-                _, jogos = n.gerar_blocos(anc, semente, np.array([b - 1]))
-                assert list(jogos[0, j - 1]) == list(d)
+                d, lote, j = r["dezenas"][0], int(r["blocos"][0]), int(r["jogos"][0])
+                assert 1 <= j <= 8
+                bloco, sub = divmod(lote - 1, 8)
+                _, jogos = n.gerar_blocos(anc, semente, np.array([bloco]))
+                assert list(jogos[0, sub * 8 + j - 1]) == list(d)
                 assert len(set(map(int, d)) & set(sorteio)) == r["acertos"][0]
 
 
