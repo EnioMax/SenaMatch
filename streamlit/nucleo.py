@@ -3,13 +3,16 @@ SenaMatch - núcleo de cálculo (sem Streamlit).
 
 Estrutura:
   - 30 colunas (N1..N30), cada uma com 2 dezenas âncora (as 60 dezenas, todas distintas).
-  - Um LOTE (bloco) é a escolha de 6 colunas entre as 30: C(30,6) = 593.775 lotes.
-  - Cada lote gera 2^6 = 64 jogos (1 dezena de cada coluna escolhida): 38.001.600 jogos.
+  - Um BLOCO é a escolha de 6 colunas entre as 30: C(30,6) = 593.775 blocos.
+  - Cada bloco gera 2^6 = 64 jogos (1 dezena de cada coluna escolhida): 38.001.600 jogos.
   - Cada dezena aparece no mesmo número de jogos (3.800.160): igualdade exata.
+  - Os jogos são redistribuídos em 593.775 LOTES de 64 por herança: o jogo 1 de cada lote
+    fica no lote de origem e o jogo k vem do bloco (L + (k-1)*PASSO) mod 593.775, na mesma
+    posição k. Cada jogo aparece uma única vez, sem sorteio nesta etapa.
 
 O código do apostador e o segredo (HMAC) definem a ORDEM dos blocos e a ordem dos
-64 jogos dentro de cada bloco. Mesmo código + mesmas âncoras -> sempre o mesmo lote.
-Tudo é calculado sob demanda (por faixa de blocos), sem guardar os 38 milhões de jogos.
+64 jogos dentro de cada bloco. Mesmo código + mesmas âncoras -> sempre o mesmo conjunto.
+Tudo é calculado sob demanda (por faixa de lotes), sem guardar os 38 milhões de jogos.
 """
 
 import hashlib
@@ -27,6 +30,7 @@ COLUNAS_POR_BLOCO = 6
 DEZENAS_POR_COLUNA = 2
 JOGOS_POR_BLOCO = DEZENAS_POR_COLUNA**COLUNAS_POR_BLOCO  # 64
 TOTAL_BLOCOS = comb(NUM_COLUNAS, COLUNAS_POR_BLOCO)  # 593.775
+PASSO_DE_HERANCA = TOTAL_BLOCOS // JOGOS_POR_BLOCO  # 9.277: espalha os 64 jogos de um lote por toda a lista
 TOTAL_JOGOS = TOTAL_BLOCOS * JOGOS_POR_BLOCO  # 38.001.600
 JOGOS_POR_DEZENA = comb(NUM_COLUNAS - 1, COLUNAS_POR_BLOCO - 1) * JOGOS_POR_BLOCO // DEZENAS_POR_COLUNA
 DEZENA_MIN, DEZENA_MAX = 1, 60
@@ -125,14 +129,21 @@ def _mistura(x: np.ndarray) -> np.ndarray:
     return x ^ (x >> np.uint64(31))
 
 
-def _ordem_dos_jogos(semente: int, posicoes: np.ndarray) -> np.ndarray:
-    """(n, 64): permutação dos 64 jogos de cada bloco, dependente só de (semente, posição)."""
+def _ordem_dos_jogos(semente: int, posicoes: np.ndarray, k: np.ndarray | None = None) -> np.ndarray:
+    """Padrão (0..63) que ocupa a posição k de cada bloco: permutação afim (a*k + b) mod 64.
+
+    Com `a` ímpar é uma bijeção, então os 64 jogos do bloco aparecem uma vez cada, e o cálculo é
+    O(1) por jogo. (a, b) dependem só de (semente, posição). `k` tem o shape de `posicoes`
+    (ou (n, 64) se omitido: ordem completa de cada bloco).
+    """
     chave = np.uint64(semente & 0xFFFFFFFFFFFFFFFF)
-    base = posicoes.astype(np.uint64)[:, None] * np.uint64(JOGOS_POR_BLOCO) + np.arange(
-        JOGOS_POR_BLOCO, dtype=np.uint64
-    )
     with np.errstate(over="ignore"):
-        return np.argsort(_mistura(base ^ chave), axis=1)
+        h = _mistura(np.asarray(posicoes).astype(np.uint64) ^ chave)
+    a = ((h & np.uint64(63)) | np.uint64(1)).astype(np.int64)
+    b = ((h >> np.uint64(6)) & np.uint64(63)).astype(np.int64)
+    if k is None:
+        a, b, k = a[:, None], b[:, None], np.arange(JOGOS_POR_BLOCO, dtype=np.int64)
+    return (a * k + b) % JOGOS_POR_BLOCO
 
 
 def ancoras_para_array(ancoras: list[list[int]]) -> np.ndarray:
@@ -140,16 +151,41 @@ def ancoras_para_array(ancoras: list[list[int]]) -> np.ndarray:
 
 
 def gerar_blocos(ancoras: np.ndarray, semente: int, posicoes: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-    """Gera os blocos nas posições dadas (0-based).
+    """Gera os blocos de origem (6 colunas + 64 jogos) nas posições dadas (0-based).
 
     Retorna (colunas (n,6), jogos (n,64,6)); a dezena Dk de cada jogo pertence à k-ésima coluna
-    do bloco (colunas em ordem crescente), preservando a ancoragem, e os 64 jogos de cada bloco já vêm na ordem definida pelo código do apostador.
+    do bloco (colunas em ordem crescente), preservando a ancoragem. O jogo na posição k do bloco
+    é o padrão definido por `_ordem_dos_jogos`.
     """
     posicoes = np.asarray(posicoes, dtype=np.int64)
     colunas = todas_combinacoes()[ordem_dos_blocos(semente)[posicoes]]
     por_coluna = ancoras[colunas]  # (n, 6, 2)
     jogos = por_coluna[:, np.arange(COLUNAS_POR_BLOCO)[None, :], BITS]  # (n, 64, 6)
     jogos = np.take_along_axis(jogos, _ordem_dos_jogos(semente, posicoes)[:, :, None], axis=1)
+    return colunas, jogos
+
+
+def bloco_de_origem(lotes: np.ndarray, k: np.ndarray) -> np.ndarray:
+    """Posição do bloco de origem do jogo k (0..63) do lote (0-based): (lote + k*PASSO) mod total."""
+    return (np.asarray(lotes, dtype=np.int64)[..., None] + np.asarray(k, dtype=np.int64) * PASSO_DE_HERANCA) % TOTAL_BLOCOS
+
+
+def gerar_lotes(ancoras: np.ndarray, semente: int, lotes: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Gera os lotes (0-based) com a distribuição por herança.
+
+    O jogo k do lote L é o jogo de mesma posição k do bloco de origem (L + k*PASSO) mod 593.775.
+    O jogo 1 (k=0) fica no próprio lote; os demais vêm de outros lotes. Para cada k isso é uma
+    rotação da lista de blocos, logo cada jogo do conjunto aparece exatamente uma vez.
+    Retorna (colunas (n,64,6), jogos (n,64,6)): as colunas de origem de cada jogo e as dezenas.
+    """
+    lotes = np.asarray(lotes, dtype=np.int64)
+    k = np.arange(JOGOS_POR_BLOCO, dtype=np.int64)
+    pos = bloco_de_origem(lotes, k)  # (n, 64)
+    colunas = todas_combinacoes()[ordem_dos_blocos(semente)[pos]]  # (n, 64, 6)
+    padrao = _ordem_dos_jogos(semente, pos, k)  # (n, 64)
+    por_coluna = ancoras[colunas]  # (n, 64, 6, 2)
+    escolha = BITS[padrao][..., None]  # (n, 64, 6, 1)
+    jogos = np.take_along_axis(por_coluna, escolha, axis=3)[..., 0]
     return colunas, jogos
 
 
@@ -171,12 +207,12 @@ def gerar_csv(ancoras: list[list[int]], semente: int, numero_arquivo: int) -> by
     """CSV (separador ';', abre direto no Excel): Lote;Jogo;D1..D6, linhas de largura fixa."""
     ini, fim = intervalo_do_arquivo(numero_arquivo)
     posicoes = np.arange(ini, fim)
-    _, jogos = gerar_blocos(ancoras_para_array(ancoras), semente, posicoes)
+    _, jogos = gerar_lotes(ancoras_para_array(ancoras), semente, posicoes)
     n_blocos = len(posicoes)
     total_jogos_arquivo = n_blocos * JOGOS_POR_BLOCO
 
     saida = np.full((total_jogos_arquivo, BYTES_PREFIXO_CSV + 3 * COLUNAS_POR_BLOCO), ord(";"), dtype=np.uint8)
-    
+
     lotes = np.repeat(posicoes + 1, JOGOS_POR_BLOCO)
     for k in range(6):
         saida[:, 5 - k] = 48 + (lotes // 10**k) % 10
@@ -296,13 +332,15 @@ def conferir_sorteio(ancoras: list[list[int]], semente: int, sorteio: tuple[int,
     acertos = sorteadas[jogos].sum(axis=2)  # (n, 64)
     b, j = np.nonzero(acertos >= 4)
     n_acertos = acertos[b, j].astype(np.int64)
-    ordem = np.lexsort((j, posicoes_blocos[b], -n_acertos))
-    b, j, n_acertos = b[ordem], j[ordem], n_acertos[ordem]
+    # O jogo na posição j do bloco de origem p pertence ao lote (p - j*PASSO) mod total
+    lotes = (posicoes_blocos[b] - j * PASSO_DE_HERANCA) % TOTAL_BLOCOS
+    ordem = np.lexsort((j, lotes, -n_acertos))
+    b, j, n_acertos, lotes = b[ordem], j[ordem], n_acertos[ordem], lotes[ordem]
 
     return {
         "melhor": min(melhor, 6),
         "contagem": {k: int((n_acertos == k).sum()) for k in (4, 5, 6)},
-        "blocos": posicoes_blocos[b] + 1,
+        "blocos": lotes + 1,
         "jogos": j + 1,
         "dezenas": jogos[b, j],
         "acertos": n_acertos,

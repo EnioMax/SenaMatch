@@ -3,14 +3,17 @@ SenaMatch - Simulador de Lotes (v4)
 
 Regra do conjunto:
   - 30 colunas (N1..N30), cada uma com 2 dezenas âncora (as 60 dezenas, todas diferentes).
-  - Um LOTE é a escolha de 6 colunas entre as 30: C(30;6) = 593.775 lotes.
-  - Cada lote gera 2^6 = 64 jogos (1 dezena de cada coluna escolhida), sem repetição.
+  - Um BLOCO é a escolha de 6 colunas entre as 30: C(30;6) = 593.775 blocos.
+  - Cada bloco gera 2^6 = 64 jogos (1 dezena de cada coluna escolhida), sem repetição.
   - Total do conjunto: 593.775 x 64 = 38.001.600 jogos; cada dezena aparece no mesmo número de jogos.
-  - Posição: a dezena ocupa no jogo a posição da sua coluna dentro do lote (colunas em ordem
+  - Distribuição: os jogos são redistribuídos em 593.775 LOTES de 64 por herança. O jogo 1 de cada
+    lote fica, e o jogo k vem do bloco (L + (k-1) x 9.277) mod 593.775, na mesma posição k.
+    Nenhum jogo se repete. A regra é fixa (sem sorteio).
+  - Posição: a dezena ocupa no jogo a posição da sua coluna dentro do jogo (colunas em ordem
     crescente). As dezenas de N1 ficam sempre na 1ª posição, independente do valor.
     Os jogos não seguem ordem crescente.
 
-O código do apostador e o segredo do servidor definem a ORDEM dos lotes e dos jogos
+O código do apostador e o segredo do servidor definem a ORDEM dos blocos e dos jogos
 (HMAC). Mesmo código + mesmas âncoras -> sempre o mesmo conjunto.
 Os jogos são gerados sob demanda e entregues em arquivos CSV (cabem no Excel).
 
@@ -60,20 +63,19 @@ def obter_segredo() -> tuple[str, bool]:
 # Exibição
 # ----------------------------------------------------------------------
 def html_bloco(colunas: np.ndarray, jogos: np.ndarray) -> str:
-    """Os 64 jogos de um lote: só as 6 dezenas de cada jogo, da 1ª à 6ª posição."""
+    """Os 64 jogos de um lote (colunas e jogos: (64, 6)); cada bolinha mostra a coluna de origem ao passar o mouse."""
     celula = "padding:2px 4px;text-align:center;"
     bola = (
         "display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;"
         "border-radius:50%;font-weight:600;font-size:14px;color:#fff;box-sizing:border-box;"
     )
     cabecalho = "".join(
-        f'<th style="{celula}font-size:11px;line-height:1.3;color:{CORES[k]};">{k + 1}ª<br>N{int(c) + 1}</th>'
-        for k, c in enumerate(colunas)
+        f'<th style="{celula}font-size:11px;line-height:1.3;color:{CORES[k]};">{k + 1}ª</th>' for k in range(6)
     )
     linhas = []
-    for num, jogo in enumerate(jogos, start=1):
+    for num, (jogo, cols) in enumerate(zip(jogos, colunas), start=1):
         celulas = "".join(
-            f'<td style="{celula}"><span style="{bola}background:{CORES[k]};">{int(d):02d}</span></td>'
+            f'<td style="{celula}"><span title="N{int(cols[k]) + 1}" style="{bola}background:{CORES[k]};">{int(d):02d}</span></td>'
             for k, d in enumerate(jogo)
         )
         linhas.append(f'<tr><td style="padding:2px 8px 2px 0;font-weight:600;white-space:nowrap;">Jogo {num:02d}</td>{celulas}</tr>')
@@ -130,16 +132,13 @@ def mostrar_resultado(res: dict) -> None:
             key="numero_bloco",
             help="Apenas para consultar um lote na tela. Não altera o conjunto nem a conferência.",
         )
-        colunas, jogos = n.gerar_blocos(ancoras, res["semente"], np.array([int(bloco) - 1]))
-        legenda = " ".join(
-            f'<b style="color:{CORES[k]};">N{c + 1}</b> ({ancoras[c][0]:02d}/{ancoras[c][1]:02d})'
-            for k, c in enumerate(colunas[0])
-        )
-        st.markdown(f"Colunas do lote {int(bloco):06d}: {legenda}", unsafe_allow_html=True)
+        colunas, jogos = n.gerar_lotes(ancoras, res["semente"], np.array([int(bloco) - 1]))
+        st.markdown(f"**Lote {int(bloco):06d}**: 64 jogos")
         st.caption(
-            "Cada jogo tem 6 dezenas, da 1ª à 6ª posição. O cabeçalho mostra a posição e a coluna de origem "
-            "(N1 a N30); a posição é a ordem da coluna dentro do lote (da menor para a maior). "
-            "Os jogos não seguem ordem crescente."
+            "O jogo 1 pertence a este lote; cada um dos outros 63 jogos é herdado de um lote diferente, "
+            "sempre da mesma posição, e nenhum jogo do conjunto se repete. Cada jogo tem 6 dezenas, da 1ª à 6ª "
+            "posição (a ordem da coluna dentro do jogo, da menor para a maior); passe o mouse sobre uma dezena "
+            "para ver a coluna de origem (N1 a N30). Os jogos não seguem ordem crescente."
         )
         st.markdown(html_bloco(colunas[0], jogos[0]), unsafe_allow_html=True)
 
@@ -369,12 +368,14 @@ with st.expander("ℹ️ Como funciona: conjunto, lote e jogo", expanded=True):
     st.markdown(
         "- **Jogo:** 6 dezenas, uma de cada coluna do lote. A dezena fica na posição da sua coluna: "
         "as dezenas de **N1 ficam sempre na 1ª posição**, independente do valor, e as demais colunas "
-        "ocupam a posição que têm dentro do lote (da menor para a maior). Os jogos não seguem ordem crescente.\n"
-        f"- **Lote:** a escolha de 6 colunas entre as 30. Gera **{n.JOGOS_POR_BLOCO} jogos**: cada coluna "
-        "contribui com as suas 2 dezenas, 32 vezes cada, em ordem sorteada (sem padrão alternado).\n"
+        "ocupam a posição que têm dentro do jogo (da menor para a maior). Os jogos não seguem ordem crescente.\n"
+        f"- **Bloco:** a escolha de 6 colunas entre as 30. Gera **{n.JOGOS_POR_BLOCO} jogos**: cada coluna "
+        "contribui com as suas 2 dezenas, 32 vezes cada.\n"
+        f"- **Lote:** {n.JOGOS_POR_BLOCO} jogos. O 1º é do próprio bloco e cada um dos outros 63 é herdado "
+        "de um bloco diferente, por um deslocamento fixo. Nenhum jogo se repete.\n"
         f"- **Conjunto:** todos os lotes do apostador: **{milhar(n.TOTAL_BLOCOS)} lotes**, "
         f"ou **{milhar(n.TOTAL_JOGOS)} jogos**. É o que você gera, baixa e confere.\n"
-        "- O **código do apostador** e as **âncoras** definem a ordem dos lotes e dos jogos: "
+        "- O **código do apostador** e as **âncoras** definem a ordem dos blocos e dos jogos: "
         "mesmo código e mesmas âncoras sempre geram o mesmo conjunto."
     )
 

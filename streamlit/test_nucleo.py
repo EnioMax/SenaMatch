@@ -69,10 +69,45 @@ def test_csv():
     # Verifica se as dezenas na primeira linha do CSV batem com o esperado para o bloco
     dezenas_csv = [int(c) for c in campos[2:]]
     assert list(dezenas_csv) == list(jogos[0, 0])
+    _, lote_ini = n.gerar_lotes(ANC, SEMENTE, np.array([ini]))
+    assert [int(c) for c in linhas[2].split(";")[2:]] == list(lote_ini[0, 1])
+    _, lote_ini = n.gerar_lotes(ANC, SEMENTE, np.array([ini]))
+    assert [int(c) for c in linhas[2].split(";")[2:]] == list(lote_ini[0, 1])
 
     assert linhas[-1].split(";")[0] == f"{fim:06d}" and linhas[-1].split(";")[1] == "64"
     linhas1 = n.gerar_csv(n.PADRAO_ANCORAS, SEMENTE, 1).decode().splitlines()
     assert len(linhas1) == 1 + 960_000
+
+
+def test_lotes_por_heranca():
+    p = n.PASSO_DE_HERANCA
+    assert p == 9277
+    # Para cada posição k, lote -> bloco de origem é uma rotação da lista: bijeção
+    todos = np.arange(n.TOTAL_BLOCOS)
+    for k in range(64):
+        assert np.array_equal(np.sort(n.bloco_de_origem(todos, np.array([k]))[:, 0]), todos)
+    lotes = np.array([0, 1, 5000, 593_774])
+    colunas, jogos = n.gerar_lotes(ANC, SEMENTE, lotes)
+    assert jogos.shape == (4, 64, 6) and colunas.shape == (4, 64, 6)
+    for i, lote in enumerate(lotes):
+        assert len({tuple(j) for j in jogos[i]}) == 64  # sem repetição dentro do lote
+        # jogo 1 fica: é o jogo 1 do bloco de mesma posição
+        assert list(jogos[i, 0]) == list(n.gerar_blocos(ANC, SEMENTE, np.array([lote]))[1][0, 0])
+        for k in (1, 2, 63):  # o jogo k é herdado do jogo k de outro bloco
+            origem = (lote + k * p) % n.TOTAL_BLOCOS
+            assert list(jogos[i, k]) == list(n.gerar_blocos(ANC, SEMENTE, np.array([origem]))[1][0, k])
+            assert origem != lote
+        for jogo, cols in zip(jogos[i], colunas[i]):
+            assert all(int(d) in ANC[c] for d, c in zip(jogo, cols))
+    # A ordem dos 64 jogos de cada bloco é uma permutação (cada padrão aparece uma vez)
+    ordem = n._ordem_dos_jogos(SEMENTE, np.arange(0, n.TOTAL_BLOCOS, 7))
+    assert (np.sort(ordem, axis=1) == np.arange(64)).all()
+    # Cada dezena aparece o mesmo número de vezes no conjunto redistribuído
+    contagem = np.zeros(61, dtype=np.int64)
+    for ini in range(0, n.TOTAL_BLOCOS, 20_000):
+        _, js = n.gerar_lotes(ANC, SEMENTE, np.arange(ini, min(ini + 20_000, n.TOTAL_BLOCOS)))
+        contagem += np.bincount(js.ravel(), minlength=61)
+    assert set(contagem[1:]) == {n.JOGOS_POR_DEZENA}
 
 
 def test_zip():
@@ -147,7 +182,7 @@ def test_conferidor_contra_forca_bruta():
             assert (np.diff(r["acertos"]) <= 0).all()
             if len(r["acertos"]):
                 d, b, j = r["dezenas"][0], r["blocos"][0], r["jogos"][0]
-                _, jogos = n.gerar_blocos(anc, semente, np.array([b - 1]))
+                _, jogos = n.gerar_lotes(anc, semente, np.array([b - 1]))
                 assert list(jogos[0, j - 1]) == list(d)
                 assert len(set(map(int, d)) & set(sorteio)) == r["acertos"][0]
 
