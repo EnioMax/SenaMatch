@@ -6,9 +6,10 @@ Regra do conjunto:
   - Um BLOCO é a escolha de 6 colunas entre as 30: C(30;6) = 593.775 blocos.
   - Cada bloco gera 2^6 = 64 jogos (1 dezena de cada coluna escolhida), sem repetição.
   - Total do conjunto: 593.775 x 64 = 38.001.600 jogos; cada dezena aparece no mesmo número de jogos.
-  - Distribuição: os jogos são redistribuídos em 593.775 LOTES de 64 por herança. O jogo 1 de cada
-    lote fica, e o jogo k vem do bloco (L + (k-1) x 9.277) mod 593.775, na mesma posição k.
-    Nenhum jogo se repete. A regra é fixa (sem sorteio).
+  - Distribuição: os blocos formam 118.755 grupos de 5 (320 jogos), e cada grupo vira 64 lotes de
+    5 jogos: 7.600.320 lotes. O jogo k (0..4) do lote m do grupo G vem da posição m do bloco
+    5 x G' + (m + k) mod 5, com G' = (G + k x 23.751) mod 118.755. O jogo 1 fica no próprio grupo
+    e os outros 4 são herdados de grupos diferentes. Nenhum jogo se repete. A regra é fixa (sem sorteio).
   - Cada jogo mostra as 6 dezenas em ordem crescente (menor à esquerda), como o resultado do sorteio.
 
 O código do apostador e o segredo do servidor definem a ORDEM dos blocos e dos jogos
@@ -25,12 +26,18 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 
+import caixa
 import nucleo as n
 
 FAIXAS = {6: "🏆 Sena", 5: "🥈 Quina", 4: "🥉 Quadra"}
 MAX_JOGOS_EXIBIDOS = 200
+LOTES_NA_TELA = 15
+COLUNAS_NA_TELA = 3
 MAX_SORTEIOS = 1000
 MAX_DETALHES = 5  # até aqui mostra os jogos premiados de todos os sorteios
+MAX_RANKING = 100  # lotes mostrados no ranking (o CSV leva todos)
+VALOR_APOSTA_PADRAO = 6.00
+FILTROS_PADRAO = {"filtro_faixas": list(FAIXAS), "filtro_lotes": "", "filtro_jogo": "Todos"}
 
 # Uma cor por posição de coluna dentro do lote (tons que funcionam em tema claro e escuro)
 CORES = ["#d97706", "#059669", "#2563eb", "#9333ea", "#dc2626", "#db2777"]
@@ -67,11 +74,11 @@ def obter_segredo() -> tuple[str, bool]:
 # Exibição
 # ----------------------------------------------------------------------
 def html_bloco(colunas: np.ndarray, jogos: np.ndarray) -> str:
-    """Os 64 jogos de um lote (colunas e jogos: (64, 6)); cada bolinha mostra a coluna de origem ao passar o mouse."""
+    """Os jogos de um lote (colunas e jogos: (5, 6)); cada bolinha mostra a coluna de origem ao passar o mouse."""
     celula = "padding:2px 4px;text-align:center;"
     bola = (
-        "display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;"
-        "border-radius:50%;font-weight:600;font-size:14px;color:#fff;box-sizing:border-box;"
+        "display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;"
+        "border-radius:50%;font-weight:600;font-size:12px;color:#fff;box-sizing:border-box;"
     )
     cabecalho = "".join(
         f'<th style="{celula}font-size:11px;line-height:1.3;color:{CORES[k]};">D{k + 1}</th>' for k in range(6)
@@ -82,7 +89,7 @@ def html_bloco(colunas: np.ndarray, jogos: np.ndarray) -> str:
             f'<td style="{celula}"><span title="N{int(cols[k]) + 1}" style="{bola}background:{CORES[k]};">{int(d):02d}</span></td>'
             for k, d in enumerate(jogo)
         )
-        linhas.append(f'<tr><td style="padding:2px 8px 2px 0;font-weight:600;white-space:nowrap;">Jogo {num:02d}</td>{celulas}</tr>')
+        linhas.append(f'<tr><td style="padding:2px 6px 2px 0;font-weight:600;white-space:nowrap;font-size:13px;">Jogo {num}</td>{celulas}</tr>')
     return (
         '<div style="overflow-x:auto;"><table style="border-collapse:collapse;">'
         f'<thead><tr><th></th>{cabecalho}</tr></thead><tbody>' + "".join(linhas) + "</tbody></table></div>"
@@ -105,7 +112,7 @@ def html_jogo_conferido(bloco: int, jogo: int, dezenas: np.ndarray, sorteio: tup
     lista = ", ".join(f"{d:02d}" for d in acertos)
     return (
         '<div style="display:flex;align-items:center;gap:8px;margin:6px 0;flex-wrap:wrap;">'
-        f'<span style="min-width:150px;font-weight:600;">Lote {bloco:06d} · Jogo {jogo:02d}</span>{bolas}'
+        f'<span style="min-width:150px;font-weight:600;">Lote {bloco:07d} · Jogo {jogo}</span>{bolas}'
         f'<span style="margin-left:6px;"><b>{FAIXAS[len(acertos)]} · {len(acertos)} acertos</b>: {lista}</span></div>'
     )
 
@@ -114,12 +121,16 @@ def milhar(valor: int) -> str:
     return f"{valor:,}".replace(",", ".")
 
 
+def reais(valor: float) -> str:
+    return "R$ " + f"{valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+
 def mostrar_resultado(res: dict) -> None:
     ancoras = n.ancoras_para_array(res["ancoras"])
 
     c1, c2, c3, c4, c5 = st.columns(5)
-    c1.metric("Lotes no conjunto", milhar(n.TOTAL_BLOCOS), help="Cada lote combina 6 das 30 colunas.")
-    c2.metric("Jogos por lote", n.JOGOS_POR_BLOCO, help="Uma dezena de cada coluna do lote: 2⁶ = 64 jogos.")
+    c1.metric("Lotes no conjunto", milhar(n.TOTAL_LOTES), help="Cada lote tem 5 jogos.")
+    c2.metric("Jogos por lote", n.JOGOS_POR_LOTE, help="Cada lote reúne 5 jogos do conjunto.")
     c3.metric("Jogos no conjunto", milhar(n.TOTAL_JOGOS), help="Todos os lotes juntos.")
     c4.metric("Jogos por dezena", milhar(n.JOGOS_POR_DEZENA), help="Quantos jogos do conjunto contêm cada dezena (igual para todas).")
     c5.metric("ID do conjunto", res["id"], help="Identifica este conjunto: depende do código do apostador e das âncoras.")
@@ -127,28 +138,38 @@ def mostrar_resultado(res: dict) -> None:
     aba_bloco, aba_arquivos = st.tabs(["🔎 Ver os jogos de um lote", "⬇️ Baixar os jogos do conjunto"])
 
     with aba_bloco:
-        bloco = st.number_input(
-            "Número do lote (1 a 593.775)",
+        ultimo_inicio = n.TOTAL_LOTES - LOTES_NA_TELA + 1
+        inicio = st.number_input(
+            f"Lote inicial (1 a {milhar(ultimo_inicio)})",
             min_value=1,
-            max_value=n.TOTAL_BLOCOS,
+            max_value=ultimo_inicio,
             value=1,
-            step=1,
+            step=LOTES_NA_TELA,
             key="numero_bloco",
-            help="Apenas para consultar um lote na tela. Não altera o conjunto nem a conferência.",
+            help=f"Mostra {LOTES_NA_TELA} lotes seguidos a partir deste. Apenas para consulta: não altera o conjunto nem a conferência.",
         )
-        colunas, jogos = n.gerar_lotes(ancoras, res["semente"], np.array([int(bloco) - 1]))
-        st.markdown(f"**Lote {int(bloco):06d}**: 64 jogos")
+        inicio = int(inicio)
+        lotes_tela = np.arange(inicio - 1, inicio - 1 + LOTES_NA_TELA)
+        colunas, jogos = n.gerar_lotes(ancoras, res["semente"], lotes_tela)
+        st.markdown(
+            f"**Lotes {inicio:07d} a {inicio + LOTES_NA_TELA - 1:07d}**: {LOTES_NA_TELA} lotes de {n.JOGOS_POR_LOTE} jogos"
+        )
         st.caption(
-            "O jogo 1 pertence a este lote; cada um dos outros 63 jogos é herdado de um lote diferente, "
-            "sempre da mesma posição, e nenhum jogo do conjunto se repete. Cada jogo tem 6 dezenas em "
+            "O jogo 1 de cada lote vem do próprio grupo de blocos e os outros 4 são herdados de grupos "
+            "diferentes, por um deslocamento fixo; nenhum jogo do conjunto se repete. "
+            "Cada jogo tem 6 dezenas em "
             "ordem crescente (menor à esquerda); passe o mouse sobre uma dezena para ver a coluna de origem (N1 a N30)."
         )
-        st.markdown(html_bloco(colunas[0], jogos[0]), unsafe_allow_html=True)
+        for linha in range(0, LOTES_NA_TELA, COLUNAS_NA_TELA):
+            for coluna_st, i in zip(st.columns(COLUNAS_NA_TELA), range(linha, linha + COLUNAS_NA_TELA)):
+                with coluna_st:
+                    st.markdown(f"**Lote {inicio + i:07d}**")
+                    st.markdown(html_bloco(colunas[i], jogos[i]), unsafe_allow_html=True)
 
     with aba_arquivos:
         st.write(
             f"O conjunto tem {milhar(n.TOTAL_JOGOS)} jogos, divididos em **{n.TOTAL_ARQUIVOS} arquivos CSV** de até "
-            f"{milhar(n.BLOCOS_POR_ARQUIVO * n.JOGOS_POR_BLOCO)} jogos (cabem em uma planilha do Excel). "
+            f"{milhar(n.LOTES_POR_ARQUIVO * n.JOGOS_POR_LOTE)} jogos (cabem em uma planilha do Excel). "
             "Colunas: Lote, Jogo e D1 a D6 (as 6 dezenas do jogo, em ordem crescente)."
         )
         formato = st.radio(
@@ -216,25 +237,19 @@ def resumir_sorteios(ancoras: list[list[int]], sorteios: list[tuple[int, ...]]) 
     return [n.resumir_sorteio(ancoras, sorteio) for sorteio in sorteios]
 
 
-def mostrar_detalhes(indice: int, rotulo: str, sorteio: tuple[int, ...], res: dict) -> None:
-    r = n.conferir_sorteio(res["ancoras"], res["semente"], sorteio)
-    st.subheader(f"{rotulo} — {' '.join(f'{d:02d}' for d in sorteio)}")
-    total_sorteio = len(r["acertos"])
-    if not total_sorteio:
-        st.write(f"Sem jogos premiados. Melhor resultado do conjunto: {r['melhor']} acerto(s).")
-        return
-    st.caption("Dezenas acertadas em destaque (bolinha cheia com brilho); as demais ficam apagadas.")
-    exibir = min(total_sorteio, MAX_JOGOS_EXIBIDOS)
-    st.markdown(
-        "".join(
-            html_jogo_conferido(int(r["blocos"][k]), int(r["jogos"][k]), r["dezenas"][k], sorteio)
-            for k in range(exibir)
-        ),
-        unsafe_allow_html=True,
-    )
-    if total_sorteio > exibir:
-        st.caption(f"Mostrando os {exibir} melhores de {milhar(total_sorteio)} jogos premiados.")
-    tabela = pd.DataFrame(
+@st.cache_data(show_spinner=False, max_entries=8)
+def detalhar_sorteio(ancoras: list[list[int]], semente: int, sorteio: tuple[int, ...]) -> dict:
+    """Jogos premiados do conjunto inteiro (em cache: mexer nos filtros não refaz a conferência)."""
+    return n.conferir_sorteio(ancoras, semente, sorteio)
+
+
+@st.cache_data(show_spinner="Conferindo os lotes escolhidos...", max_entries=2)
+def detalhar_lotes(ancoras: list[list[int]], semente: int, lotes: np.ndarray, sorteios: list[tuple[int, ...]]) -> list[dict]:
+    return n.conferir_lotes(ancoras, semente, lotes, sorteios)
+
+
+def tabela_premiados(r: dict) -> pd.DataFrame:
+    return pd.DataFrame(
         {
             "Faixa": [FAIXAS[int(a)] for a in r["acertos"]],
             "Acertos": r["acertos"],
@@ -243,32 +258,200 @@ def mostrar_detalhes(indice: int, rotulo: str, sorteio: tuple[int, ...], res: di
             **{f"D{c + 1}": r["dezenas"][:, c] for c in range(6)},
         }
     )
-    st.download_button(
-        f"⬇️ Baixar os {milhar(total_sorteio)} jogos premiados (CSV)",
-        data=tabela.to_csv(sep=";", index=False).encode("utf-8-sig"),
-        file_name=f"premiados_{rotulo.replace(' ', '_')}.csv",
-        mime="text/csv",
-        key=f"btn_premiados_{indice}",
+
+
+def csv_bytes(tabela: pd.DataFrame, indice: bool = False) -> bytes:
+    return tabela.to_csv(sep=";", index=indice).encode("utf-8-sig")
+
+
+def limpar_filtros() -> None:
+    st.session_state.update(FILTROS_PADRAO)
+
+
+def escolher_filtros() -> dict:
+    """Filtros únicos da lista de jogos premiados, valem para todos os sorteios mostrados."""
+    for chave, valor in FILTROS_PADRAO.items():
+        st.session_state.setdefault(chave, valor)
+    st.markdown("**🔍 Filtrar jogos premiados**")
+    col_faixas, col_lotes, col_jogo, col_limpar = st.columns([2.2, 1.6, 1, 1], vertical_alignment="bottom")
+    faixas = col_faixas.multiselect(
+        "Faixas", options=list(FAIXAS), format_func=lambda acertos: FAIXAS[acertos], key="filtro_faixas"
     )
+    texto_lotes = col_lotes.text_input(
+        "Lotes (opcional)",
+        placeholder="Ex.: 25, 100-200",
+        key="filtro_lotes",
+        help="Um lote, vários separados por vírgula ou faixas como 100-200.",
+    )
+    jogo = col_jogo.selectbox("Jogo", ["Todos", *range(1, n.JOGOS_POR_LOTE + 1)], key="filtro_jogo")
+    col_limpar.button("Limpar filtros", key="btn_limpar_filtros", on_click=limpar_filtros, width="stretch")
+    lotes, erros = n.interpretar_lotes(texto_lotes)
+    for erro in erros:
+        st.error(f"Filtro de lotes ignorado: {erro}")
+    filtro = {
+        "faixas": tuple(faixas),
+        "lotes": lotes,
+        "jogos": None if jogo == "Todos" else (int(jogo),),
+    }
+    filtro["ativo"] = set(faixas) != set(FAIXAS) or lotes is not None or filtro["jogos"] is not None
+    st.caption("Os filtros valem para a lista exibida, o ranking e o CSV filtrado; o CSV completo continua disponível.")
+    return filtro
+
+
+def mostrar_detalhes(indice: int, rotulo: str, sorteio: tuple[int, ...], r: dict, filtro: dict, escopo: str) -> None:
+    st.subheader(f"{rotulo} — {' '.join(f'{d:02d}' for d in sorteio)}")
+    total_sorteio = len(r["acertos"])
+    if not total_sorteio:
+        st.write(f"Sem jogos premiados. Melhor resultado {escopo}: {r['melhor']} acerto(s).")
+        return
+
+    filtrados = n.filtrar_premiados(r, faixas=filtro["faixas"], lotes=filtro["lotes"], jogos=filtro["jogos"])
+    total_filtrado = len(filtrados["acertos"])
+    nome = n.nome_de_arquivo(rotulo)
+    aba_jogos, aba_ranking = st.tabs(["🎯 Jogos premiados", "🏅 Ranking de lotes"])
+
+    with aba_jogos:
+        if not total_filtrado:
+            st.info("Nenhum jogo premiado corresponde aos filtros selecionados.")
+        exibir = min(total_filtrado, MAX_JOGOS_EXIBIDOS)
+        if exibir:
+            st.caption("Dezenas acertadas em destaque (bolinha cheia com brilho); as demais ficam apagadas.")
+            st.markdown(
+                "".join(
+                    html_jogo_conferido(
+                        int(filtrados["blocos"][k]), int(filtrados["jogos"][k]), filtrados["dezenas"][k], sorteio
+                    )
+                    for k in range(exibir)
+                ),
+                unsafe_allow_html=True,
+            )
+        if total_filtrado > exibir:
+            st.caption(f"Mostrando os {exibir} melhores de {milhar(total_filtrado)} jogos que correspondem aos filtros.")
+        st.download_button(
+            f"⬇️ Baixar os {milhar(total_sorteio)} jogos premiados (CSV)",
+            data=csv_bytes(tabela_premiados(r)),
+            file_name=f"premiados_{nome}.csv",
+            mime="text/csv",
+            key=f"btn_premiados_{indice}",
+        )
+        if total_filtrado and filtro["ativo"]:
+            st.download_button(
+                f"⬇️ Baixar os {milhar(total_filtrado)} jogos filtrados (CSV)",
+                data=csv_bytes(tabela_premiados(filtrados)),
+                file_name=f"premiados_filtrados_{nome}.csv",
+                mime="text/csv",
+                key=f"btn_premiados_filtrados_{indice}",
+            )
+
+    with aba_ranking:
+        ranking = n.ranking_por_lote(filtrados)
+        if not len(ranking["lote"]):
+            st.info("Nenhum lote premiado corresponde aos filtros selecionados.")
+        else:
+            tabela = pd.DataFrame(
+                {
+                    "Lote": ranking["lote"],
+                    FAIXAS[6]: ranking["sena"],
+                    FAIXAS[5]: ranking["quina"],
+                    FAIXAS[4]: ranking["quadra"],
+                    "Melhor resultado": ranking["melhor"],
+                }
+            )
+            st.caption(
+                f"{milhar(len(tabela))} lote(s) com jogos premiados, do que mais pontuou ao que menos "
+                f"(Sena, depois Quina, depois Quadra). Mostrando os {min(len(tabela), MAX_RANKING)} primeiros."
+            )
+            st.dataframe(
+                tabela.head(MAX_RANKING),
+                hide_index=True,
+                height=min(35 * min(len(tabela), MAX_RANKING) + 38, 420),
+                column_config={"Lote": st.column_config.NumberColumn(format="%07d")},
+            )
+            st.download_button(
+                f"⬇️ Baixar o ranking dos {milhar(len(tabela))} lotes (CSV)",
+                data=csv_bytes(tabela),
+                file_name=f"ranking_lotes_{nome}.csv",
+                mime="text/csv",
+                key=f"btn_ranking_{indice}",
+            )
+
+
+def buscar_concursos_caixa() -> None:
+    """Preenche a caixa de sorteios com os últimos concursos da Caixa e guarda os prêmios por ganhador."""
+    col_qtd, col_botao, _ = st.columns([1, 1.4, 3], vertical_alignment="bottom")
+    quantidade = col_qtd.number_input(
+        "Últimos concursos", min_value=1, max_value=caixa.MAX_CONCURSOS, value=5, step=1, key="qtd_caixa"
+    )
+    if not col_botao.button(
+        "📥 Buscar da Caixa",
+        key="btn_caixa",
+        help="Consulta os resultados oficiais da Mega-Sena e já os confere (substitui o texto atual).",
+    ):
+        return
+    with st.spinner("Consultando a Caixa..."):
+        concursos, falhas = caixa.buscar_ultimos(int(quantidade))
+    if not concursos:
+        st.error("Não foi possível consultar a Caixa agora. Digite os sorteios manualmente.")
+        return
+    linhas, premios = [], {}
+    for c in reversed(concursos):
+        rotulo = f"Concurso {c['numero']}" + (f" ({c['data']})" if c["data"] else "")
+        linhas.append(f"{rotulo}: {' '.join(f'{d:02d}' for d in c['dezenas'])}")
+        premios[rotulo] = c["premios"]
+    st.session_state["texto_sorteios"] = "\n".join(linhas)
+    st.session_state["premios_caixa"] = premios
+    if falhas:
+        st.warning(f"{falhas} concurso(s) não puderam ser lidos e ficaram de fora.")
+
+
+def escolher_lotes() -> tuple[np.ndarray | None, bool]:
+    """Escopo da conferência: (lotes 0-based ou None para o conjunto inteiro, se já pode conferir)."""
+    escopo = st.radio(
+        "O que conferir",
+        ["Conjunto inteiro", "Só os lotes que eu joguei"],
+        horizontal=True,
+        key="escopo_conferencia",
+    )
+    if escopo == "Conjunto inteiro":
+        return None, True
+    texto = st.text_input(
+        "Lotes que você jogou",
+        placeholder="Ex.: 25, 100-200, 1.000",
+        key="lotes_jogados",
+        help=f"Lotes avulsos separados por vírgula e faixas como 100-200 (até {milhar(n.MAX_LOTES_SELECIONADOS)} lotes).",
+    )
+    lotes, erros = n.interpretar_lotes(texto)
+    for erro in erros:
+        st.error(erro)
+    if lotes is None:
+        if not erros:
+            st.info("Informe os lotes que você jogou para conferi-los.")
+        return None, False
+    st.caption(f"{milhar(len(lotes))} lote(s) selecionado(s), {milhar(len(lotes) * n.JOGOS_POR_LOTE)} jogos.")
+    return lotes, True
 
 
 def mostrar_conferidor(res: dict) -> None:
     st.divider()
     st.header("✅ Conferidor de Resultados")
     st.caption(
-        "Digite os sorteios da Sena, um por linha (6 dezenas, separadas por espaço, vírgula ou hífen). "
-        "Opcionalmente, identifique o concurso antes de dois-pontos, "
-        "ex.: Concurso 2800: 04 11 25 38 47 59. A conferência é automática "
-        "(Ctrl+Enter ou clique fora do campo). Ela considera **o conjunto inteiro** "
-        f"({milhar(n.TOTAL_BLOCOS)} lotes), independentemente do lote que você estiver visualizando. "
+        "Digite os sorteios da Sena, um por linha (6 dezenas, separadas por espaço, vírgula ou hífen), "
+        "ou busque os últimos concursos da Caixa. Opcionalmente, identifique o concurso antes de dois-pontos, "
+        "ex.: Concurso 2800: 04 11 25 38 47 59. Clique em **Conferir** (ou use Ctrl+Enter) para ver o resultado. "
+        "A conferência considera **o conjunto inteiro**, "
+        "independentemente do lote que você estiver visualizando, ou só os lotes que você jogou. "
         f"Limite: {MAX_SORTEIOS} sorteios por vez."
     )
-    texto = st.text_area(
-        "Resultados dos sorteios",
-        height=140,
-        placeholder="Concurso 2800: 04 11 25 38 47 59\n05 17 23 31 42 60",
-        key="texto_sorteios",
-    )
+    lotes, pronto = escolher_lotes()
+    buscar_concursos_caixa()
+    with st.form("form_sorteios", border=False):
+        texto = st.text_area(
+            "Resultados dos sorteios",
+            height=140,
+            placeholder="Concurso 2800: 04 11 25 38 47 59\n05 17 23 31 42 60",
+            key="texto_sorteios",
+        )
+        st.form_submit_button("✅ Conferir", type="primary", key="btn_conferir")
     sorteios, erros = n.interpretar_sorteios(texto)
     for erro in erros:
         st.error(erro)
@@ -276,28 +459,63 @@ def mostrar_conferidor(res: dict) -> None:
         if not erros:
             st.info("Aguardando o resultado dos sorteios.")
         return
+    sorteios, repetidos = n.rotulos_unicos(sorteios)
+    if repetidos:
+        st.warning(f"Rótulos repetidos ({', '.join(repetidos)}): numerei os repetidos para diferenciá-los.")
     if len(sorteios) > MAX_SORTEIOS:
         st.warning(f"Foram informados {len(sorteios)} sorteios; conferindo apenas os {MAX_SORTEIOS} primeiros.")
         sorteios = sorteios[:MAX_SORTEIOS]
+    st.caption(f"{len(sorteios)} sorteio(s) válido(s).")
+    if not pronto:
+        return
 
-    resumos = resumir_sorteios(res["ancoras"], [s for _, s in sorteios])
-    totais = [sum(r["contagem"].values()) for r in resumos]
-
+    ancoras, semente = res["ancoras"], res["semente"]
+    dezenas = [s for _, s in sorteios]
+    resumos = resumir_sorteios(ancoras, dezenas)
+    if lotes is None:
+        detalhes_lotes = None
+        contagens = [r["contagem"] for r in resumos]
+        melhores = [r["melhor"] for r in resumos]
+        jogos_conferidos, escopo = n.TOTAL_JOGOS, "do conjunto"
+    else:
+        detalhes_lotes = detalhar_lotes(ancoras, semente, lotes, dezenas)
+        contagens = [d["contagem"] for d in detalhes_lotes]
+        melhores = [d["melhor"] for d in detalhes_lotes]
+        jogos_conferidos, escopo = len(lotes) * n.JOGOS_POR_LOTE, "dos lotes escolhidos"
+    totais = [sum(c.values()) for c in contagens]
     total = sum(totais)
+
     if total:
         st.success(f"🎉 {milhar(total)} jogo(s) premiado(s) em {len(sorteios)} sorteio(s) conferido(s)!")
     else:
         st.warning(f"Nenhum jogo premiado (Quadra ou mais) em {len(sorteios)} sorteio(s) conferido(s).")
+
+    colunas_resumo = st.columns(4)
+    for coluna, faixa in zip(colunas_resumo, FAIXAS):
+        coluna.metric(FAIXAS[faixa], milhar(sum(c[faixa] for c in contagens)))
+    if total and len(sorteios) > 1:
+        melhor_i = max(range(len(sorteios)), key=lambda i: (contagens[i][6], contagens[i][5], contagens[i][4]))
+        colunas_resumo[3].metric(
+            "Melhor sorteio", sorteios[melhor_i][0], help="O sorteio com mais Senas, depois Quinas, depois Quadras."
+        )
+
+    retornos = mostrar_retorno_financeiro(sorteios, contagens, jogos_conferidos)
 
     tabela_resumo = pd.DataFrame(
         [
             {
                 "Sorteio": rotulo,
                 "Dezenas": " ".join(f"{d:02d}" for d in sorteio),
-                **{FAIXAS[k]: r["contagem"][k] for k in FAIXAS},
-                "Melhor resultado": f"{r['melhor']} acertos",
+                **{FAIXAS[k]: contagens[i][k] for k in FAIXAS},
+                "Melhor resultado": f"{melhores[i]} acertos",
+                "Pares na mesma coluna": resumos[i]["cobertura"]["duplos"],
+                **(
+                    {"Prêmio": reais(retornos[i]["premio"]), "Saldo": reais(retornos[i]["saldo"])}
+                    if retornos[i]
+                    else ({"Prêmio": "—", "Saldo": "—"} if any(retornos) else {})
+                ),
             }
-            for (rotulo, sorteio), r in zip(sorteios, resumos)
+            for i, (rotulo, sorteio) in enumerate(sorteios)
         ]
     ).set_index("Sorteio")
     if len(sorteios) <= MAX_DETALHES:
@@ -306,20 +524,47 @@ def mostrar_conferidor(res: dict) -> None:
         st.dataframe(tabela_resumo, height=min(35 * len(sorteios) + 38, 420))
         st.download_button(
             "⬇️ Baixar o resumo dos sorteios (CSV)",
-            data=tabela_resumo.to_csv(sep=";").encode("utf-8-sig"),
+            data=csv_bytes(tabela_resumo, indice=True),
             file_name="resumo_sorteios.csv",
             mime="text/csv",
             key="btn_resumo",
         )
+    st.caption(
+        "**Pares na mesma coluna:** duas dezenas sorteadas na mesma coluna nunca aparecem juntas em um jogo. "
+        "Com 0 pares, o conjunto inteiro contém uma Sena; cada par reduz em 1 o melhor resultado possível do conjunto (6 − pares)."
+    )
 
-    if len(sorteios) <= MAX_DETALHES:
-        for i, (rotulo, sorteio) in enumerate(sorteios):
-            mostrar_detalhes(i, rotulo, sorteio, res)
-        return
+    if total and len(sorteios) > 1:
+        with st.expander("📊 Gráfico por sorteio", expanded=True):
+            faixa = st.radio(
+                "Faixa do gráfico",
+                list(FAIXAS)[::-1],
+                index=1,
+                format_func=lambda acertos: FAIXAS[acertos],
+                horizontal=True,
+                key="faixa_grafico",
+            )
+            st.bar_chart(
+                pd.DataFrame({FAIXAS[faixa]: [c[faixa] for c in contagens]}, index=[r for r, _ in sorteios]),
+                sort=False,
+            )
 
     com_premio = [i for i, t in enumerate(totais) if t]
     if not com_premio:
+        if len(sorteios) <= MAX_DETALHES:
+            for i, (rotulo, sorteio) in enumerate(sorteios):
+                st.write(f"**{rotulo}** — sem jogos premiados. Melhor resultado {escopo}: {melhores[i]} acerto(s).")
         return
+
+    def detalhe_de(i: int) -> dict:
+        return detalhar_sorteio(ancoras, semente, sorteios[i][1]) if lotes is None else detalhes_lotes[i]
+
+    filtro = escolher_filtros()
+    if len(sorteios) <= MAX_DETALHES:
+        for i, (rotulo, sorteio) in enumerate(sorteios):
+            mostrar_detalhes(i, rotulo, sorteio, detalhe_de(i), filtro, escopo)
+        return
+
     st.caption(f"Com mais de {MAX_DETALHES} sorteios, os jogos premiados são mostrados um sorteio por vez.")
     escolhido = st.selectbox(
         "Ver os jogos premiados de",
@@ -327,7 +572,50 @@ def mostrar_conferidor(res: dict) -> None:
         format_func=lambda i: f"{sorteios[i][0]} — {' '.join(f'{d:02d}' for d in sorteios[i][1])} ({milhar(totais[i])} jogos)",
         key="sorteio_detalhe",
     )
-    mostrar_detalhes(escolhido, sorteios[escolhido][0], sorteios[escolhido][1], res)
+    mostrar_detalhes(escolhido, sorteios[escolhido][0], sorteios[escolhido][1], detalhe_de(escolhido), filtro, escopo)
+
+
+def mostrar_retorno_financeiro(
+    sorteios: list[tuple[str, tuple[int, ...]]], contagens: list[dict], jogos: int
+) -> list[dict | None]:
+    """Prêmio, investimento e saldo por sorteio (None onde não há valores de prêmio) e o total geral."""
+    with st.expander("💰 Retorno financeiro (opcional)"):
+        valor_aposta = st.number_input(
+            "Valor de cada jogo (R$)", min_value=0.0, value=VALOR_APOSTA_PADRAO, step=0.5, format="%.2f", key="valor_aposta"
+        )
+        st.caption(
+            "Os concursos buscados da Caixa já trazem o prêmio por ganhador. Para os sorteios digitados à mão, "
+            "informe abaixo os valores (deixe 0 para ignorar)."
+        )
+        col6, col5, col4 = st.columns(3)
+        manuais = {
+            faixa: coluna.number_input(
+                f"{FAIXAS[faixa]} (R$ por ganhador)", min_value=0.0, value=0.0, step=100.0, format="%.2f", key=f"premio_{faixa}"
+            )
+            for faixa, coluna in zip(FAIXAS, (col6, col5, col4))
+        }
+        da_caixa = st.session_state.get("premios_caixa", {})
+        retornos: list[dict | None] = []
+        for (rotulo, _), contagem in zip(sorteios, contagens):
+            premios = da_caixa.get(rotulo) or (manuais if any(manuais.values()) else None)
+            retornos.append(n.calcular_retorno(contagem, premios, jogos, valor_aposta) if premios else None)
+        validos = [r for r in retornos if r]
+        if not validos:
+            return retornos
+        premio = sum(r["premio"] for r in validos)
+        investido = sum(r["investido"] for r in validos)
+        saldo = premio - investido
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("Prêmio total", reais(premio))
+        c2.metric("Investido", reais(investido), help=f"{milhar(jogos)} jogo(s) por sorteio.")
+        c3.metric("Saldo", reais(saldo))
+        c4.metric("Retorno", f"{saldo / investido * 100:+.1f}%" if investido else "—")
+        st.caption(
+            f"Considera {len(validos)} de {len(sorteios)} sorteio(s) com prêmios conhecidos. Valores por ganhador: "
+            "se o concurso acumulou (sem ganhador da Sena), a faixa vem zerada e o rateio real mudaria com os seus jogos. "
+            "No conjunto inteiro o investimento é enorme; o retorno faz mais sentido conferindo só os lotes que você jogou."
+        )
+    return retornos
 
 
 # ----------------------------------------------------------------------
@@ -373,9 +661,10 @@ with st.expander("ℹ️ Como funciona: conjunto, lote e jogo", expanded=True):
         "(menor à esquerda), como o resultado do sorteio.\n"
         f"- **Bloco:** a escolha de 6 colunas entre as 30. Gera **{n.JOGOS_POR_BLOCO} jogos**: cada coluna "
         "contribui com as suas 2 dezenas, 32 vezes cada.\n"
-        f"- **Lote:** {n.JOGOS_POR_BLOCO} jogos. O 1º é do próprio bloco e cada um dos outros 63 é herdado "
-        "de um bloco diferente, por um deslocamento fixo. Nenhum jogo se repete.\n"
-        f"- **Conjunto:** todos os lotes do apostador: **{milhar(n.TOTAL_BLOCOS)} lotes**, "
+        f"- **Lote:** {n.JOGOS_POR_LOTE} jogos. Os blocos são agrupados de 5 em 5 e cada grupo forma 64 lotes: "
+        "o 1º jogo do lote é do próprio grupo e cada um dos outros 4 é herdado de um grupo diferente, "
+        "por um deslocamento fixo. Nenhum jogo se repete.\n"
+        f"- **Conjunto:** todos os lotes do apostador: **{milhar(n.TOTAL_LOTES)} lotes**, "
         f"ou **{milhar(n.TOTAL_JOGOS)} jogos**. É o que você gera, baixa e confere.\n"
         "- O **código do apostador** e as **âncoras** definem a ordem dos blocos e dos jogos: "
         "mesmo código e mesmas âncoras sempre geram o mesmo conjunto."
@@ -383,15 +672,31 @@ with st.expander("ℹ️ Como funciona: conjunto, lote e jogo", expanded=True):
 
 st.subheader("Configuração das Âncoras (30 Colunas / 2 Dezenas por Coluna)")
 st.caption(
-    "As 60 dezenas (01 a 60) devem ser todas diferentes, em qualquer ordem. Cada lote usa 6 colunas; "
+    "As 60 dezenas (01 a 60) devem ser todas diferentes, em qualquer ordem. Cada jogo usa 6 colunas; "
     "de cada uma, as 2 dezenas aparecem 32 vezes cada, em ordem sorteada. "
-    "Edite as células da tabela para mudar as âncoras."
+    "Edite as células da tabela para definir as âncoras: use **Limpar** para começar do zero e "
+    "preencher as 60 dezenas. Com as 60 dezenas válidas, **Definir como padrão** as guarda como o padrão do app; "
+    "ao recarregar a página, a tabela volta ao padrão atual."
 )
 
 if "versao_ancoras" not in st.session_state:
     st.session_state["versao_ancoras"] = 0
+    st.session_state["ancoras_vazias"] = False
+
+
+def limpar_ancoras() -> None:
+    """Descarta as edições e recarrega a tabela vazia, para o usuário preencher as 60 dezenas."""
+    st.session_state["ancoras_vazias"] = True
+    st.session_state["versao_ancoras"] += 1
+
+
+ancoras_padrao = n.carregar_ancoras_padrao()
+padrao_personalizado = ancoras_padrao != n.PADRAO_ANCORAS
+base = ancoras_padrao if not st.session_state["ancoras_vazias"] else [[None, None]] * n.NUM_COLUNAS
+if aviso := st.session_state.pop("aviso_padrao", None):
+    st.success(aviso)
 padrao = pd.DataFrame(
-    n.PADRAO_ANCORAS,
+    base,
     index=[f"N{c + 1}" for c in range(n.NUM_COLUNAS)],
     columns=["Dezena 1", "Dezena 2"],
 ).T.astype("Int64")
@@ -407,22 +712,53 @@ editado = st.data_editor(
     },
     key=f"ancoras_{st.session_state['versao_ancoras']}",
 )
-if st.button("Restaurar âncoras padrão", key="btn_restaurar"):
-    st.session_state["versao_ancoras"] += 1
-    st.rerun()
 
 colunas_cfg = [
     [None if pd.isna(editado.iloc[j, c]) else int(editado.iloc[j, c]) for j in range(n.DEZENAS_POR_COLUNA)]
     for c in range(n.NUM_COLUNAS)
 ]
 problemas = n.validar_ancoras(colunas_cfg)
+preenchidas = sum(d is not None for col in colunas_cfg for d in col)
+if preenchidas < n.NUM_COLUNAS * n.DEZENAS_POR_COLUNA:
+    st.caption(f"Dezenas preenchidas: {preenchidas} de {n.NUM_COLUNAS * n.DEZENAS_POR_COLUNA}.")
 for problema in problemas:
     st.error(problema)
+
+botao_definir, botao_limpar, botao_original = st.columns([1, 1, 1.6])
+botao_limpar.button("Limpar", key="btn_limpar", on_click=limpar_ancoras, width="stretch")
+if botao_definir.button(
+    "Definir como padrão",
+    key="btn_definir_padrao",
+    disabled=bool(problemas),
+    width="stretch",
+    help="Guarda as âncoras da tabela como o padrão do app (vale para todos os usuários).",
+):
+    try:
+        n.salvar_ancoras_padrao(colunas_cfg)
+    except OSError:
+        st.error("Não foi possível gravar o padrão no servidor.")
+    else:
+        st.session_state["ancoras_vazias"] = False
+        st.session_state["versao_ancoras"] += 1
+        st.session_state["aviso_padrao"] = "✅ Âncoras definidas como o novo padrão."
+        st.rerun()
+if padrao_personalizado and botao_original.button(
+    "Voltar ao padrão original (01 a 60)", key="btn_padrao_original", width="stretch"
+):
+    try:
+        n.remover_ancoras_padrao()
+    except OSError:
+        st.error("Não foi possível remover o padrão personalizado.")
+    else:
+        st.session_state["ancoras_vazias"] = False
+        st.session_state["versao_ancoras"] += 1
+        st.session_state["aviso_padrao"] = "✅ Padrão original (01 a 60) restaurado."
+        st.rerun()
 
 st.divider()
 
 if st.button(
-    f"🚀 Gerar o Conjunto ({milhar(n.TOTAL_BLOCOS)} lotes · {milhar(n.TOTAL_JOGOS)} jogos)",
+    f"🚀 Gerar o Conjunto ({milhar(n.TOTAL_LOTES)} lotes · {milhar(n.TOTAL_JOGOS)} jogos)",
     type="primary",
     key="btn_gerar",
     disabled=bool(problemas),
@@ -441,7 +777,7 @@ if st.button(
         }
         st.session_state.pop("arquivo", None)
         st.success(
-            f"✅ Conjunto gerado para o apostador {codigo}: {milhar(n.TOTAL_BLOCOS)} lotes, "
+            f"✅ Conjunto gerado para o apostador {codigo}: {milhar(n.TOTAL_LOTES)} lotes, "
             f"{milhar(n.TOTAL_JOGOS)} jogos. Use as abas abaixo para ver um lote ou baixar os jogos."
         )
 

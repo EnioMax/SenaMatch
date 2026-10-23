@@ -14,6 +14,8 @@ ANC = n.ancoras_para_array(n.PADRAO_ANCORAS)
 def test_constantes():
     assert n.TOTAL_BLOCOS == 593_775
     assert n.TOTAL_JOGOS == 38_001_600
+    assert n.JOGOS_POR_LOTE == 5
+    assert n.TOTAL_LOTES == 7_600_320
     assert n.JOGOS_POR_DEZENA == 3_800_160
     assert n.TOTAL_ARQUIVOS == 40
 
@@ -60,42 +62,60 @@ def test_csv():
     ini, fim = n.intervalo_do_arquivo(40)
     # Cabeçalho: Lote;Jogo;D1;D2;D3;D4;D5;D6
     assert linhas[0].strip() == n.CABECALHO_CSV.strip()
-    assert len(linhas) == 1 + (fim - ini) * 64
+    assert len(linhas) == 1 + (fim - ini) * 5
     campos = linhas[1].split(";")
-    # Lote (6 chars), Jogo (2 chars), 6 dezenas = 8 campos
-    assert campos[0] == f"{ini + 1:06d}" and campos[1] == "01" and len(campos) == 8
-    
-    colunas, jogos = n.gerar_blocos(ANC, SEMENTE, np.array([ini]))
-    # Verifica se as dezenas na primeira linha do CSV batem com o esperado para o bloco
-    dezenas_csv = [int(c) for c in campos[2:]]
-    assert list(dezenas_csv) == sorted(jogos[0, 0])
+    # Lote (7 chars), Jogo (1 char), 6 dezenas = 8 campos
+    assert campos[0] == f"{ini + 1:07d}" and campos[1] == "1" and len(campos) == 8
     _, lote_ini = n.gerar_lotes(ANC, SEMENTE, np.array([ini]))
-    assert [int(c) for c in linhas[2].split(";")[2:]] == list(lote_ini[0, 1])
-
-    assert linhas[-1].split(";")[0] == f"{fim:06d}" and linhas[-1].split(";")[1] == "64"
+    for k in range(5):
+        assert [int(c) for c in linhas[1 + k].split(";")[2:]] == list(lote_ini[0, k])
+        assert linhas[1 + k].split(";")[:2] == [f"{ini + 1:07d}", str(k + 1)]
+    assert linhas[-1].split(";")[0] == f"{fim:07d}" and linhas[-1].split(";")[1] == "5"
     linhas1 = n.gerar_csv(n.PADRAO_ANCORAS, SEMENTE, 1).decode().splitlines()
     assert len(linhas1) == 1 + 960_000
 
 
-def test_lotes_por_heranca():
-    p = n.PASSO_DE_HERANCA
-    assert p == 9277
-    # Para cada posição k, lote -> bloco de origem é uma rotação da lista: bijeção
-    todos = np.arange(n.TOTAL_BLOCOS)
-    for k in range(64):
-        assert np.array_equal(np.sort(n.bloco_de_origem(todos, np.array([k]))[:, 0]), todos)
-    lotes = np.array([0, 1, 5000, 593_774])
+def test_lotes_de_5_jogos():
+    assert (n.TOTAL_GRUPOS, n.LOTES_POR_GRUPO, n.PASSO_DE_HERANCA) == (118_755, 64, 23_751)
+    # Exemplos da regra: lote L = G*64 + m; jogo k do grupo (G + k*23751), bloco 5*G' + (m+k)%5, posição m
+    for lote, esperado in {
+        0: [(0, 0), (118_756, 0), (237_512, 0), (356_268, 0), (475_024, 0)],
+        1: [(1, 1), (118_757, 1), (237_513, 1), (356_269, 1), (475_020, 1)],
+        64: [(5, 0), (118_761, 0), (237_517, 0), (356_273, 0), (475_029, 0)],
+    }.items():
+        pos, j = n.origem_dos_jogos(np.array([lote]), np.arange(5))
+        assert list(zip(pos[0].tolist(), j[0].tolist())) == esperado
+    # O jogo 1 fica no próprio grupo; os outros vêm de grupos diferentes
+    todos = np.arange(0, n.TOTAL_LOTES, 13)
+    pos, _ = n.origem_dos_jogos(todos, np.arange(5))
+    assert (pos[:, 0] // 5 == todos // 64).all()
+    assert all(len(set((pos[i] // 5).tolist())) == 5 for i in range(0, len(todos), 500))
+    for lote in (0, 1, 5000, 593_774, 7_600_319):
+        pos, j = n.origem_dos_jogos(np.array([lote]), np.arange(5))
+        assert ((pos >= 0) & (pos < n.TOTAL_BLOCOS) & (j >= 0) & (j < 64)).all()
+        volta, k = n.lote_do_jogo(pos, j)
+        assert (volta == lote).all() and (k[0] == np.arange(5)).all()
+    # Bijeção: cada (bloco, jogo) do conjunto é o jogo de exatamente um (lote, k)
+    vistos = np.zeros(n.TOTAL_JOGOS, dtype=np.uint8)
+    for ini in range(0, n.TOTAL_LOTES, 400_000):
+        pos, j = n.origem_dos_jogos(np.arange(ini, min(ini + 400_000, n.TOTAL_LOTES)), np.arange(5))
+        np.add.at(vistos, (pos * 64 + j).ravel(), 1)
+    assert vistos.min() == 1 and vistos.max() == 1
+    # A inversa devolve o (lote, k) original
+    lotes_amostra = np.arange(0, n.TOTAL_LOTES, 997)
+    pos, j = n.origem_dos_jogos(lotes_amostra, np.arange(5))
+    volta, k = n.lote_do_jogo(pos, j)
+    assert (volta == lotes_amostra[:, None]).all() and (k == np.arange(5)).all()
+    lotes = np.array([0, 1, 5000, 593_774, 7_600_319])
     colunas, jogos = n.gerar_lotes(ANC, SEMENTE, lotes)
-    assert jogos.shape == (4, 64, 6) and colunas.shape == (4, 64, 6)
+    assert jogos.shape == (5, 5, 6) and colunas.shape == (5, 5, 6)
     for i, lote in enumerate(lotes):
-        assert len({tuple(j) for j in jogos[i]}) == 64  # sem repetição dentro do lote
+        assert len({tuple(j) for j in jogos[i]}) == 5
         assert (np.diff(jogos[i].astype(int), axis=1) > 0).all()  # dezenas em ordem crescente
-        # jogo 1 fica: é o jogo 1 do bloco de mesma posição
-        assert list(jogos[i, 0]) == sorted(n.gerar_blocos(ANC, SEMENTE, np.array([lote]))[1][0, 0])
-        for k in (1, 2, 63):  # o jogo k é herdado do jogo k de outro bloco
-            origem = (lote + k * p) % n.TOTAL_BLOCOS
-            assert list(jogos[i, k]) == sorted(n.gerar_blocos(ANC, SEMENTE, np.array([origem]))[1][0, k])
-            assert origem != lote
+        for k in range(5):
+            p, j = n.origem_dos_jogos(np.array([lote]), np.array([k]))
+            esperado = sorted(n.gerar_blocos(ANC, SEMENTE, p[0])[1][0, j[0, 0]])
+            assert list(jogos[i, k]) == esperado
         for jogo, cols in zip(jogos[i], colunas[i]):
             assert all(int(d) in ANC[c] for d, c in zip(jogo, cols))
     # A ordem dos 64 jogos de cada bloco é uma permutação (cada padrão aparece uma vez)
@@ -103,8 +123,8 @@ def test_lotes_por_heranca():
     assert (np.sort(ordem, axis=1) == np.arange(64)).all()
     # Cada dezena aparece o mesmo número de vezes no conjunto redistribuído
     contagem = np.zeros(61, dtype=np.int64)
-    for ini in range(0, n.TOTAL_BLOCOS, 20_000):
-        _, js = n.gerar_lotes(ANC, SEMENTE, np.arange(ini, min(ini + 20_000, n.TOTAL_BLOCOS)))
+    for ini in range(0, n.TOTAL_LOTES, 400_000):
+        _, js = n.gerar_lotes(ANC, SEMENTE, np.arange(ini, min(ini + 400_000, n.TOTAL_LOTES)))
         contagem += np.bincount(js.ravel(), minlength=61)
     assert set(contagem[1:]) == {n.JOGOS_POR_DEZENA}
 
@@ -131,6 +151,35 @@ def test_zip():
         assert zf.namelist() == [f"x_parte{k}de40.csv" for k in range(36, 41)]
         assert zf.read("x_parte40de40.csv") == n.gerar_csv(n.PADRAO_ANCORAS, SEMENTE, 40)
     assert chamadas[-1] == (5, 5)
+
+
+def test_ancoras_padrao_personalizadas():
+    import tempfile
+    from pathlib import Path
+
+    with tempfile.TemporaryDirectory() as d:
+        caminho = Path(d) / "ancoras_padrao.json"
+        assert n.carregar_ancoras_padrao(caminho) == n.PADRAO_ANCORAS  # sem arquivo: 01..60
+        nova = [[2 * i + 2, 2 * i + 1] for i in range(30)][::-1]
+        n.salvar_ancoras_padrao(nova, caminho)
+        assert n.carregar_ancoras_padrao(caminho) == nova
+        # não salva âncoras inválidas e preserva o padrão salvo
+        for invalida in ([[1, 1]] + nova[1:], nova[:29], [[None, 2]] + nova[1:], [[0, 61]] + nova[1:]):
+            try:
+                n.salvar_ancoras_padrao(invalida, caminho)
+                assert False, "deveria falhar"
+            except ValueError:
+                pass
+        assert n.carregar_ancoras_padrao(caminho) == nova
+        # arquivo corrompido ou inválido volta ao 01..60
+        caminho.write_text("{ruim", encoding="utf-8")
+        assert n.carregar_ancoras_padrao(caminho) == n.PADRAO_ANCORAS
+        caminho.write_text("[[1,1]]", encoding="utf-8")
+        assert n.carregar_ancoras_padrao(caminho) == n.PADRAO_ANCORAS
+        n.salvar_ancoras_padrao(nova, caminho)
+        n.remover_ancoras_padrao(caminho)
+        n.remover_ancoras_padrao(caminho)  # idempotente
+        assert n.carregar_ancoras_padrao(caminho) == n.PADRAO_ANCORAS
 
 
 def test_validacao_e_sorteios():
@@ -191,9 +240,97 @@ def test_conferidor_contra_forca_bruta():
             assert (np.diff(r["acertos"]) <= 0).all()
             if len(r["acertos"]):
                 d, b, j = r["dezenas"][0], r["blocos"][0], r["jogos"][0]
+                assert 1 <= j <= 5
                 _, jogos = n.gerar_lotes(anc, semente, np.array([b - 1]))
                 assert list(jogos[0, j - 1]) == list(d)
                 assert len(set(map(int, d)) & set(sorteio)) == r["acertos"][0]
+
+
+def test_interpretar_lotes():
+    lotes, erros = n.interpretar_lotes("25, 100-102 1.000 101-103")
+    assert erros == [] and lotes.tolist() == [24, 99, 100, 101, 102, 999]  # 0-based, ordenados, sem repetição
+    assert n.interpretar_lotes("  ") == (None, [])
+    for ruim in ("abc", "10-5", "0", f"{n.TOTAL_LOTES + 1}", f"1-{n.MAX_LOTES_SELECIONADOS + 1}"):
+        lotes, erros = n.interpretar_lotes(ruim)
+        assert lotes is None and len(erros) == 1, ruim
+    assert len(n.interpretar_lotes(f"1-{n.MAX_LOTES_SELECIONADOS}")[0]) == n.MAX_LOTES_SELECIONADOS
+
+
+def test_conferir_lotes_igual_ao_conjunto_inteiro():
+    sorteios = [(4, 12, 23, 43, 45, 60), (1, 2, 3, 4, 5, 6)]
+    completos = [n.conferir_sorteio(n.PADRAO_ANCORAS, SEMENTE, s) for s in sorteios]
+    # todos os lotes premiados de um sorteio, mais alguns avulsos: o recorte tem de ser idêntico ao do conjunto inteiro
+    escolhidos = np.unique(np.concatenate([completos[0]["blocos"] - 1, np.array([0, 1, 5000, n.TOTAL_LOTES - 1])]))
+    recorte = n.conferir_lotes(n.PADRAO_ANCORAS, SEMENTE, escolhidos, sorteios)
+    for s, completo, r in zip(sorteios, completos, recorte):
+        esperado = n.filtrar_premiados(completo, lotes=escolhidos)
+        assert r["jogos_conferidos"] == len(escolhidos) * n.JOGOS_POR_LOTE
+        assert r["contagem"] == {m: int((esperado["acertos"] == m).sum()) for m in (4, 5, 6)}, s
+        for chave in ("blocos", "jogos", "dezenas", "acertos"):
+            assert np.array_equal(r[chave], esperado[chave]), (s, chave)
+    # lotes sem premiados
+    r = n.conferir_lotes(n.PADRAO_ANCORAS, SEMENTE, np.array([0]), [(1, 2, 3, 4, 5, 6)])[0]
+    assert len(r["acertos"]) == 0 and r["contagem"] == {4: 0, 5: 0, 6: 0} and r["melhor"] <= 3
+
+
+def test_filtros_e_ranking():
+    r = {
+        "acertos": np.array([6, 5, 5, 4, 4]),
+        "blocos": np.array([10, 10, 20, 10, 30]),
+        "jogos": np.array([1, 3, 3, 2, 5]),
+        "dezenas": np.arange(30).reshape(5, 6),
+    }
+    f = n.filtrar_premiados(r, faixas=(5, 6), lotes=np.array([9]), jogos=(3,))
+    assert f["acertos"].tolist() == [5] and f["blocos"].tolist() == [10] and f["jogos"].tolist() == [3]
+    assert len(n.filtrar_premiados(r, faixas=())["acertos"]) == 0
+    assert len(n.filtrar_premiados(r)["acertos"]) == 5  # sem filtros: tudo
+    assert n.filtrar_premiados(r, jogos=(3, 5))["blocos"].tolist() == [10, 20, 30]
+    rk = n.ranking_por_lote(r)
+    assert rk["lote"].tolist() == [10, 20, 30]
+    assert rk["sena"].tolist() == [1, 0, 0] and rk["quina"].tolist() == [1, 1, 0] and rk["quadra"].tolist() == [1, 0, 1]
+    assert rk["melhor"].tolist() == [6, 5, 4]
+    assert len(n.ranking_por_lote(n.filtrar_premiados(r, faixas=()))["lote"]) == 0
+
+
+def test_rotulos_e_nomes():
+    sorteios = [("Concurso 1", (1, 2, 3, 4, 5, 6)), ("Concurso 1", (7, 8, 9, 10, 11, 12)), ("Concurso 1", (1, 2, 3, 4, 5, 7))]
+    unicos, repetidos = n.rotulos_unicos(sorteios)
+    assert [r for r, _ in unicos] == ["Concurso 1", "Concurso 1 (2)", "Concurso 1 (3)"]
+    assert [d for _, d in unicos] == [d for _, d in sorteios] and repetidos == ["Concurso 1"]
+    assert n.rotulos_unicos([("A", (1, 2, 3, 4, 5, 6))])[1] == []
+    assert n.nome_de_arquivo("Concurso 2800 (23/10/2026)") == "Concurso_2800_23_10_2026"
+    assert n.nome_de_arquivo("///") == "sorteio"
+
+
+def test_retorno():
+    r = n.calcular_retorno({6: 1, 5: 2, 4: 10}, {6: 1000.0, 5: 100.0, 4: 10.0}, 20, 6.0)
+    assert r["premio"] == 1000 + 200 + 100 and r["investido"] == 120 and r["saldo"] == 1180
+    assert abs(r["roi"] - 1180 / 120 * 100) < 1e-9
+    assert n.calcular_retorno({6: 0, 5: 0, 4: 0}, {}, 0, 6.0)["roi"] is None
+
+
+def test_caixa_normalizar():
+    import caixa
+
+    ok = {
+        "numero": 2800,
+        "dataApuracao": "23/10/2026",
+        "listaDezenas": ["60", "04", "12", "23", "43", "45"],
+        "listaRateioPremio": [
+            {"faixa": 1, "valorPremio": 0.0},
+            {"faixa": 2, "valorPremio": 50000.5},
+            {"faixa": 3, "valorPremio": 900.0},
+            {"faixa": 4, "valorPremio": 5.0},
+            {"faixa": 3, "valorPremio": float("nan")},
+        ],
+    }
+    c = caixa.normalizar(ok)
+    assert c["numero"] == 2800 and c["dezenas"] == (4, 12, 23, 43, 45, 60) and c["data"] == "23/10/2026"
+    assert c["premios"] == {6: 0.0, 5: 50000.5, 4: 900.0}
+    for ruim in (None, [], {}, {**ok, "listaDezenas": ["1", "1", "2", "3", "4", "5"]}, {**ok, "listaDezenas": ["1", "2"]},
+                 {**ok, "listaDezenas": ["0", "2", "3", "4", "5", "6"]}, {**ok, "numero": 0}, {**ok, "numero": "x"}):
+        assert caixa.normalizar(ruim) is None, ruim
+    assert caixa.normalizar({**ok, "listaRateioPremio": "lixo"})["premios"] == {}
 
 
 if __name__ == "__main__":

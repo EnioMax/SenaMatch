@@ -6,9 +6,11 @@ Estrutura:
   - Um BLOCO é a escolha de 6 colunas entre as 30: C(30,6) = 593.775 blocos.
   - Cada bloco gera 2^6 = 64 jogos (1 dezena de cada coluna escolhida): 38.001.600 jogos.
   - Cada dezena aparece no mesmo número de jogos (3.800.160): igualdade exata.
-  - Os jogos são redistribuídos em 593.775 LOTES de 64 por herança: o jogo 1 de cada lote
-    fica no lote de origem e o jogo k vem do bloco (L + (k-1)*PASSO) mod 593.775, na mesma
-    posição k. Cada jogo aparece uma única vez, sem sorteio nesta etapa.
+  - Os blocos são agrupados de 5 em 5 (118.755 GRUPOS, 320 jogos cada) e cada grupo forma 64 LOTES
+    de 5 jogos: 7.600.320 lotes. O lote L (0-based) é o lote m = L % 64 do grupo G = L // 64.
+    Herança: o jogo k (0..4) do lote vem da posição m do bloco 5*G' + (m + k) % 5, com
+    G' = (G + k*23.751) mod 118.755. O jogo 1 (k=0) fica no próprio grupo; os outros 4 vêm de
+    grupos diferentes, espalhados por toda a lista. Cada jogo aparece uma única vez, sem sorteio.
 
 O código do apostador e o segredo (HMAC) definem a ORDEM dos blocos e a ordem dos
 64 jogos dentro de cada bloco. Mesmo código + mesmas âncoras -> sempre o mesmo conjunto.
@@ -18,10 +20,14 @@ Tudo é calculado sob demanda (por faixa de lotes), sem guardar os 38 milhões d
 import hashlib
 import hmac
 import io
+import json
+import os
+import re
 import zipfile
 from functools import lru_cache
 from itertools import chain, combinations
 from math import ceil, comb
+from pathlib import Path
 
 import numpy as np
 
@@ -30,23 +36,29 @@ COLUNAS_POR_BLOCO = 6
 DEZENAS_POR_COLUNA = 2
 JOGOS_POR_BLOCO = DEZENAS_POR_COLUNA**COLUNAS_POR_BLOCO  # 64
 TOTAL_BLOCOS = comb(NUM_COLUNAS, COLUNAS_POR_BLOCO)  # 593.775
-PASSO_DE_HERANCA = TOTAL_BLOCOS // JOGOS_POR_BLOCO  # 9.277: espalha os 64 jogos de um lote por toda a lista
 TOTAL_JOGOS = TOTAL_BLOCOS * JOGOS_POR_BLOCO  # 38.001.600
+JOGOS_POR_LOTE = 5
+TOTAL_LOTES = TOTAL_JOGOS // JOGOS_POR_LOTE  # 7.600.320
+# 5 blocos (5 x 64 = 320 jogos) formam um grupo de 64 lotes de 5 jogos
+TOTAL_GRUPOS = TOTAL_BLOCOS // JOGOS_POR_LOTE  # 118.755
+LOTES_POR_GRUPO = JOGOS_POR_BLOCO  # 64
+PASSO_DE_HERANCA = TOTAL_GRUPOS // JOGOS_POR_LOTE  # 23.751: espalha os 5 jogos de um lote por toda a lista
 JOGOS_POR_DEZENA = comb(NUM_COLUNAS - 1, COLUNAS_POR_BLOCO - 1) * JOGOS_POR_BLOCO // DEZENAS_POR_COLUNA
 DEZENA_MIN, DEZENA_MAX = 1, 60
 
-# 15.000 blocos = 960.000 jogos por arquivo: cabe no limite de linhas do Excel (1.048.576)
-BLOCOS_POR_ARQUIVO = 15_000
-TOTAL_ARQUIVOS = ceil(TOTAL_BLOCOS / BLOCOS_POR_ARQUIVO)
+# 192.000 lotes = 960.000 jogos por arquivo: cabe no limite de linhas do Excel (1.048.576)
+LOTES_POR_ARQUIVO = 192_000
+TOTAL_ARQUIVOS = ceil(TOTAL_LOTES / LOTES_POR_ARQUIVO)
 
 # Pacotes ZIP de 5 arquivos (~26 MB) para baixar tudo em poucos downloads
 ARQUIVOS_POR_ZIP = 5
 TOTAL_ZIPS = ceil(TOTAL_ARQUIVOS / ARQUIVOS_POR_ZIP)
 
 PADRAO_ANCORAS = [[2 * i + 1, 2 * i + 2] for i in range(NUM_COLUNAS)]
+ARQUIVO_ANCORAS_PADRAO = Path(__file__).with_name("ancoras_padrao.json")
 
 CABECALHO_CSV = "Lote;Jogo;" + ";".join(f"D{k}" for k in range(1, COLUNAS_POR_BLOCO + 1)) + "\n"
-BYTES_PREFIXO_CSV = 10  # 'LLLLLL;JJ;'
+BYTES_PREFIXO_CSV = 10  # 'LLLLLLL;J;'
 
 # Jogo k (0..63) escolhe, na coluna j, a dezena de índice = bit j de k
 BITS = ((np.arange(JOGOS_POR_BLOCO)[:, None] >> np.arange(COLUNAS_POR_BLOCO - 1, -1, -1)) & 1).astype(np.intp)
@@ -90,6 +102,39 @@ def validar_ancoras(ancoras: list[list[int | None]]) -> list[str]:
             + ". As 60 âncoras precisam ser todas diferentes."
         )
     return erros
+
+
+# ----------------------------------------------------------------------
+# Âncoras padrão definidas pelo usuário
+# ----------------------------------------------------------------------
+def carregar_ancoras_padrao(caminho: Path = ARQUIVO_ANCORAS_PADRAO) -> list[list[int]]:
+    """Âncoras padrão: as salvas pelo usuário, se o arquivo existir e for válido; senão 01..60."""
+    try:
+        dados = json.loads(caminho.read_text(encoding="utf-8"))
+        ancoras = [[int(d) for d in col] for col in dados]
+        formato_ok = len(ancoras) == NUM_COLUNAS and all(len(c) == DEZENAS_POR_COLUNA for c in ancoras)
+        if formato_ok and not validar_ancoras(ancoras):
+            return ancoras
+    except (OSError, ValueError, TypeError):
+        pass
+    return [list(c) for c in PADRAO_ANCORAS]
+
+
+def salvar_ancoras_padrao(ancoras: list[list[int]], caminho: Path = ARQUIVO_ANCORAS_PADRAO) -> None:
+    """Grava as âncoras como padrão (só se válidas). Escrita atômica: nunca deixa o arquivo pela metade."""
+    if len(ancoras) != NUM_COLUNAS or any(len(c) != DEZENAS_POR_COLUNA for c in ancoras):
+        raise ValueError("Formato inválido: são necessárias 30 colunas com 2 dezenas.")
+    erros = validar_ancoras(ancoras)
+    if erros:
+        raise ValueError(erros[0])
+    temporario = caminho.with_suffix(".tmp")
+    temporario.write_text(json.dumps([list(c) for c in ancoras]), encoding="utf-8")
+    os.replace(temporario, caminho)
+
+
+def remover_ancoras_padrao(caminho: Path = ARQUIVO_ANCORAS_PADRAO) -> None:
+    """Volta ao padrão original (01..60)."""
+    caminho.unlink(missing_ok=True)
 
 
 # ----------------------------------------------------------------------
@@ -165,27 +210,43 @@ def gerar_blocos(ancoras: np.ndarray, semente: int, posicoes: np.ndarray) -> tup
     return colunas, jogos
 
 
-def bloco_de_origem(lotes: np.ndarray, k: np.ndarray) -> np.ndarray:
-    """Posição do bloco de origem do jogo k (0..63) do lote (0-based): (lote + k*PASSO) mod total."""
-    return (np.asarray(lotes, dtype=np.int64)[..., None] + np.asarray(k, dtype=np.int64) * PASSO_DE_HERANCA) % TOTAL_BLOCOS
+def origem_dos_jogos(lotes: np.ndarray, k: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """(posição do bloco, posição do jogo no bloco) do jogo k (0..4) do lote (0-based).
+
+    Lote L = G*64 + m. O jogo k vem do grupo G' = (G + k*PASSO) mod grupos, do bloco
+    5*G' + (m + k) mod 5, na posição m. O jogo 0 (k=0) fica no próprio grupo.
+    """
+    lotes = np.asarray(lotes, dtype=np.int64)[..., None]
+    k = np.asarray(k, dtype=np.int64)
+    grupo, m = lotes // LOTES_POR_GRUPO, lotes % LOTES_POR_GRUPO
+    grupo_origem = (grupo + k * PASSO_DE_HERANCA) % TOTAL_GRUPOS
+    posicao = JOGOS_POR_LOTE * grupo_origem + (m + k) % JOGOS_POR_LOTE
+    return posicao, np.broadcast_to(m, posicao.shape)
+
+
+def lote_do_jogo(posicao_bloco: np.ndarray, j: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Inversa de origem_dos_jogos: (lote 0-based, k 0..4) do jogo j do bloco na posição dada."""
+    posicao_bloco = np.asarray(posicao_bloco, dtype=np.int64)
+    m = np.asarray(j, dtype=np.int64)
+    k = (posicao_bloco % JOGOS_POR_LOTE - m) % JOGOS_POR_LOTE
+    grupo = (posicao_bloco // JOGOS_POR_LOTE - k * PASSO_DE_HERANCA) % TOTAL_GRUPOS
+    return grupo * LOTES_POR_GRUPO + m, k
 
 
 def gerar_lotes(ancoras: np.ndarray, semente: int, lotes: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-    """Gera os lotes (0-based) com a distribuição por herança.
+    """Gera os lotes (0-based) com a distribuição por herança: cada lote tem 5 jogos.
 
-    O jogo k do lote L é o jogo de mesma posição k do bloco de origem (L + k*PASSO) mod 593.775.
-    O jogo 1 (k=0) fica no próprio lote; os demais vêm de outros lotes. Para cada k isso é uma
-    rotação da lista de blocos, logo cada jogo do conjunto aparece exatamente uma vez.
-    Retorna (colunas (n,64,6), jogos (n,64,6)): as colunas de origem de cada jogo e as dezenas,
+    Cada jogo é o jogo j do bloco na posição p dadas por `origem_dos_jogos`. Como
+    (lote, k) <-> (bloco, j) é uma bijeção, cada jogo do conjunto aparece exatamente uma vez.
+    Retorna (colunas (n,5,6), jogos (n,5,6)): as colunas de origem de cada jogo e as dezenas,
     com as 6 dezenas de cada jogo em ordem crescente (colunas acompanham as dezenas).
     """
     lotes = np.asarray(lotes, dtype=np.int64)
-    k = np.arange(JOGOS_POR_BLOCO, dtype=np.int64)
-    pos = bloco_de_origem(lotes, k)  # (n, 64)
-    colunas = todas_combinacoes()[ordem_dos_blocos(semente)[pos]]  # (n, 64, 6)
-    padrao = _ordem_dos_jogos(semente, pos, k)  # (n, 64)
-    por_coluna = ancoras[colunas]  # (n, 64, 6, 2)
-    escolha = BITS[padrao][..., None]  # (n, 64, 6, 1)
+    pos, j = origem_dos_jogos(lotes, np.arange(JOGOS_POR_LOTE))  # (n, 5)
+    colunas = todas_combinacoes()[ordem_dos_blocos(semente)[pos]]  # (n, 5, 6)
+    padrao = _ordem_dos_jogos(semente, pos, j)  # (n, 5)
+    por_coluna = ancoras[colunas]  # (n, 5, 6, 2)
+    escolha = BITS[padrao][..., None]  # (n, 5, 6, 1)
     jogos = np.take_along_axis(por_coluna, escolha, axis=3)[..., 0]
     crescente = np.argsort(jogos, axis=-1)
     return np.take_along_axis(colunas, crescente, axis=-1), np.take_along_axis(jogos, crescente, axis=-1)
@@ -195,9 +256,9 @@ def gerar_lotes(ancoras: np.ndarray, semente: int, lotes: np.ndarray) -> tuple[n
 # Arquivos CSV
 # ----------------------------------------------------------------------
 def intervalo_do_arquivo(numero: int) -> tuple[int, int]:
-    """Posições [ini, fim) dos blocos do arquivo `numero` (1..TOTAL_ARQUIVOS)."""
-    ini = (numero - 1) * BLOCOS_POR_ARQUIVO
-    return ini, min(ini + BLOCOS_POR_ARQUIVO, TOTAL_BLOCOS)
+    """Lotes [ini, fim) (0-based) do arquivo `numero` (1..TOTAL_ARQUIVOS)."""
+    ini = (numero - 1) * LOTES_POR_ARQUIVO
+    return ini, min(ini + LOTES_POR_ARQUIVO, TOTAL_LOTES)
 
 
 def _escrever_2(saida: np.ndarray, col: int, valores: np.ndarray) -> None:
@@ -208,17 +269,16 @@ def _escrever_2(saida: np.ndarray, col: int, valores: np.ndarray) -> None:
 def gerar_csv(ancoras: list[list[int]], semente: int, numero_arquivo: int) -> bytes:
     """CSV (separador ';', abre direto no Excel): Lote;Jogo;D1..D6, linhas de largura fixa."""
     ini, fim = intervalo_do_arquivo(numero_arquivo)
-    posicoes = np.arange(ini, fim)
-    _, jogos = gerar_lotes(ancoras_para_array(ancoras), semente, posicoes)
-    n_blocos = len(posicoes)
-    total_jogos_arquivo = n_blocos * JOGOS_POR_BLOCO
+    lotes_arquivo = np.arange(ini, fim)
+    _, jogos = gerar_lotes(ancoras_para_array(ancoras), semente, lotes_arquivo)
+    total_jogos_arquivo = len(lotes_arquivo) * JOGOS_POR_LOTE
 
     saida = np.full((total_jogos_arquivo, BYTES_PREFIXO_CSV + 3 * COLUNAS_POR_BLOCO), ord(";"), dtype=np.uint8)
 
-    lotes = np.repeat(posicoes + 1, JOGOS_POR_BLOCO)
-    for k in range(6):
-        saida[:, 5 - k] = 48 + (lotes // 10**k) % 10
-    _escrever_2(saida, 7, np.tile(np.arange(1, JOGOS_POR_BLOCO + 1), n_blocos))
+    lotes = np.repeat(lotes_arquivo + 1, JOGOS_POR_LOTE)
+    for k in range(7):
+        saida[:, 6 - k] = 48 + (lotes // 10**k) % 10
+    saida[:, 8] = 48 + np.tile(np.arange(1, JOGOS_POR_LOTE + 1), len(lotes_arquivo))
     dezenas = jogos.reshape(total_jogos_arquivo, COLUNAS_POR_BLOCO).astype(np.int64)
     for k in range(COLUNAS_POR_BLOCO):
         _escrever_2(saida, BYTES_PREFIXO_CSV + 3 * k, dezenas[:, k])
@@ -314,7 +374,7 @@ def conferir_sorteio(ancoras: list[list[int]], semente: int, sorteio: tuple[int,
     Um jogo só tem 4+ acertos se seu bloco tiver 4+ colunas que contenham dezenas sorteadas;
     só esses blocos (alguns milhares) são gerados e conferidos.
     Retorna: contagem por acertos (4, 5, 6), melhor resultado do lote e os jogos premiados
-    (bloco, jogo, dezenas, acertos), ordenados por acertos (desc), bloco e jogo.
+    (lote, jogo, dezenas, acertos), ordenados por acertos (desc), lote e jogo.
     """
     anc = ancoras_para_array(ancoras)
     sorteadas = np.zeros(DEZENA_MAX + 1, dtype=bool)
@@ -334,17 +394,173 @@ def conferir_sorteio(ancoras: list[list[int]], semente: int, sorteio: tuple[int,
     acertos = sorteadas[jogos].sum(axis=2)  # (n, 64)
     b, j = np.nonzero(acertos >= 4)
     n_acertos = acertos[b, j].astype(np.int64)
-    # O jogo na posição j do bloco de origem p pertence ao lote (p - j*PASSO) mod total
-    lotes = (posicoes_blocos[b] - j * PASSO_DE_HERANCA) % TOTAL_BLOCOS
-    ordem = np.lexsort((j, lotes, -n_acertos))
-    b, j, n_acertos, lotes = b[ordem], j[ordem], n_acertos[ordem], lotes[ordem]
+    # O jogo j do bloco na posição p é o jogo k do lote L (ver lote_do_jogo)
+    lotes, k = lote_do_jogo(posicoes_blocos[b], j)
+    ordem = np.lexsort((k, lotes, -n_acertos))
+    b, j, k, n_acertos, lotes = b[ordem], j[ordem], k[ordem], n_acertos[ordem], lotes[ordem]
 
     return {
         "melhor": min(melhor, 6),
-        "contagem": {k: int((n_acertos == k).sum()) for k in (4, 5, 6)},
+        "contagem": {m: int((n_acertos == m).sum()) for m in (4, 5, 6)},
         "blocos": lotes + 1,
-        "jogos": j + 1,
+        "jogos": k + 1,
         "dezenas": np.sort(jogos[b, j], axis=-1),
         "acertos": n_acertos,
         "cobertura": {"duplos": a2, "simples": a1},
     }
+
+
+# ----------------------------------------------------------------------
+# Conferência por lotes escolhidos, ranking, filtros e retorno financeiro
+# ----------------------------------------------------------------------
+MAX_LOTES_SELECIONADOS = 100_000  # 500.000 jogos
+FAIXAS_PREMIADAS = (6, 5, 4)
+
+
+def interpretar_lotes(texto: str, total: int = TOTAL_LOTES) -> tuple[np.ndarray | None, list[str]]:
+    """Lê uma seleção de lotes como '25, 100-200, 1.000' (1-based).
+
+    Retorna (lotes 0-based, ordenados e sem repetição; None se o texto estiver vazio), erros).
+    Em caso de erro, o primeiro item é None.
+    """
+    texto = texto.strip()
+    if not texto:
+        return None, []
+    faixas: list[tuple[int, int]] = []
+    erros: list[str] = []
+    for parte in re.split(r"[,;\s]+", texto):
+        if not parte:
+            continue
+        m = re.fullmatch(r"(\d+)(?:-(\d+))?", parte.replace(".", ""))
+        if not m:
+            erros.append(f"'{parte}' não é um lote nem uma faixa (use, por exemplo, 25 ou 100-200).")
+            continue
+        ini, fim = int(m[1]), int(m[2] or m[1])
+        if ini > fim:
+            erros.append(f"Faixa invertida: {parte}.")
+        elif ini < 1 or fim > total:
+            erros.append(f"'{parte}' está fora do conjunto: os lotes vão de 1 a {total:,}.".replace(",", "."))
+        else:
+            faixas.append((ini - 1, fim))
+    if erros:
+        return None, erros
+    faixas.sort()
+    unidas: list[list[int]] = []
+    for ini, fim in faixas:
+        if unidas and ini <= unidas[-1][1]:
+            unidas[-1][1] = max(unidas[-1][1], fim)
+        else:
+            unidas.append([ini, fim])
+    quantidade = sum(fim - ini for ini, fim in unidas)
+    if quantidade > MAX_LOTES_SELECIONADOS:
+        limite = f"{MAX_LOTES_SELECIONADOS:,}".replace(",", ".")
+        return None, [f"Selecione no máximo {limite} lotes por vez (você escolheu {quantidade:,}).".replace(",", ".")]
+    return np.concatenate([np.arange(ini, fim, dtype=np.int64) for ini, fim in unidas]), []
+
+
+def conferir_lotes(ancoras: list[list[int]], semente: int, lotes: np.ndarray, sorteios: list[tuple[int, ...]]) -> list[dict]:
+    """Confere só os lotes dados (0-based) contra cada sorteio, gerando os jogos uma única vez.
+
+    Cada jogo vira uma máscara de bits (bit d = dezena d); os acertos são o popcount de
+    (jogo & sorteio). Devolve, por sorteio, o mesmo formato de `conferir_sorteio` mais
+    `jogos_conferidos`; `melhor` é o maior número de acertos entre os lotes escolhidos.
+    """
+    anc = ancoras_para_array(ancoras)
+    lotes = np.asarray(lotes, dtype=np.int64)
+    mascaras = [np.uint64(sum(1 << d for d in sorteio)) for sorteio in sorteios]
+    partes: list[list[tuple[np.ndarray, ...]]] = [[] for _ in sorteios]
+    melhor = [0] * len(sorteios)
+    for ini in range(0, len(lotes), 20_000):
+        grupo = lotes[ini : ini + 20_000]
+        _, jogos = gerar_lotes(anc, semente, grupo)
+        bits = np.bitwise_or.reduce(np.left_shift(np.uint64(1), jogos.astype(np.uint64)), axis=-1)  # (n, 5)
+        for i, mascara in enumerate(mascaras):
+            acertos = np.bitwise_count(bits & mascara).astype(np.int64)
+            melhor[i] = max(melhor[i], int(acertos.max()))
+            idx, k = np.nonzero(acertos >= 4)
+            partes[i].append((grupo[idx], k, acertos[idx, k], jogos[idx, k]))
+    resultados = []
+    for i in range(len(sorteios)):
+        vazio = (np.empty(0, np.int64), np.empty(0, np.int64), np.empty(0, np.int64), np.empty((0, COLUNAS_POR_BLOCO), np.uint8))
+        lt, k, ac, dz = (np.concatenate(c) for c in zip(*partes[i])) if partes[i] else vazio
+        ordem = np.lexsort((k, lt, -ac))
+        lt, k, ac, dz = lt[ordem], k[ordem], ac[ordem], dz[ordem]
+        resultados.append(
+            {
+                "melhor": min(melhor[i], 6),
+                "contagem": {m: int((ac == m).sum()) for m in (4, 5, 6)},
+                "blocos": lt + 1,
+                "jogos": k + 1,
+                "dezenas": dz,
+                "acertos": ac,
+                "jogos_conferidos": len(lotes) * JOGOS_POR_LOTE,
+            }
+        )
+    return resultados
+
+
+def filtrar_premiados(
+    r: dict,
+    faixas: tuple[int, ...] | None = None,
+    lotes: np.ndarray | None = None,
+    jogos: tuple[int, ...] | None = None,
+) -> dict:
+    """Restringe os jogos premiados às faixas (acertos), aos lotes (0-based) e/ou aos jogos (1 a 5) informados."""
+    mascara = np.ones(len(r["acertos"]), dtype=bool)
+    if faixas is not None:
+        mascara &= np.isin(r["acertos"], faixas)
+    if lotes is not None:
+        mascara &= np.isin(r["blocos"] - 1, lotes)
+    if jogos is not None:
+        mascara &= np.isin(r["jogos"], jogos)
+    return {chave: r[chave][mascara] for chave in ("blocos", "jogos", "dezenas", "acertos")}
+
+
+def rotulos_unicos(sorteios: list[tuple[str, tuple[int, ...]]]) -> tuple[list[tuple[str, tuple[int, ...]]], list[str]]:
+    """Torna os rótulos únicos ('Concurso 1', 'Concurso 1 (2)', ...) e devolve os rótulos que se repetiam."""
+    usados: set[str] = set()
+    repetidos: list[str] = []
+    resultado = []
+    for rotulo, dezenas in sorteios:
+        novo, contador = rotulo, 1
+        while novo in usados:
+            contador += 1
+            novo = f"{rotulo} ({contador})"
+        if novo != rotulo and rotulo not in repetidos:
+            repetidos.append(rotulo)
+        usados.add(novo)
+        resultado.append((novo, dezenas))
+    return resultado, repetidos
+
+
+def nome_de_arquivo(texto: str) -> str:
+    """Troca por '_' tudo que não é letra, número ou hífen, para o rótulo servir de nome de arquivo."""
+    return re.sub(r"[^\w-]+", "_", texto).strip("_") or "sorteio"
+
+
+def ranking_por_lote(r: dict) -> dict:
+    """Agrupa os jogos premiados por lote: contagem de Sena, Quina e Quadra e melhor resultado.
+
+    Ordenado por Sena, Quina e Quadra (desc) e depois pelo número do lote.
+    """
+    lotes, acertos = np.asarray(r["blocos"]), np.asarray(r["acertos"])
+    if not len(lotes):
+        vazio = np.empty(0, np.int64)
+        return {"lote": vazio, "sena": vazio, "quina": vazio, "quadra": vazio, "melhor": vazio}
+    unicos, inverso = np.unique(lotes, return_inverse=True)
+    contar = lambda m: np.bincount(inverso, weights=(acertos == m), minlength=len(unicos)).astype(np.int64)
+    sena, quina, quadra = contar(6), contar(5), contar(4)
+    melhor = np.zeros(len(unicos), dtype=np.int64)
+    np.maximum.at(melhor, inverso, acertos)
+    ordem = np.lexsort((unicos, -quadra, -quina, -sena))
+    return {
+        "lote": unicos[ordem], "sena": sena[ordem], "quina": quina[ordem], "quadra": quadra[ordem], "melhor": melhor[ordem]
+    }
+
+
+def calcular_retorno(contagem: dict[int, int], premios: dict[int, float], jogos: int, valor_aposta: float) -> dict:
+    """Prêmio total, capital investido (jogos x valor da aposta), saldo e retorno percentual (ROI)."""
+    premio = sum(contagem.get(f, 0) * premios.get(f, 0.0) for f in FAIXAS_PREMIADAS)
+    investido = jogos * valor_aposta
+    saldo = premio - investido
+    return {"premio": premio, "investido": investido, "saldo": saldo, "roi": saldo / investido * 100 if investido else None}
