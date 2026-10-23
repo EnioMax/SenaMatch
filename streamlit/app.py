@@ -155,8 +155,7 @@ def mostrar_resultado(res: dict) -> None:
             f"**Lotes {inicio:07d} a {inicio + LOTES_NA_TELA - 1:07d}**: {LOTES_NA_TELA} lotes de {n.JOGOS_POR_LOTE} jogos"
         )
         st.caption(
-            "O jogo 1 de cada lote vem do próprio grupo de blocos e os outros 4 são herdados de grupos "
-            "diferentes, por um deslocamento fixo; nenhum jogo do conjunto se repete. "
+            "Cada lote tem 5 jogos, todos diferentes entre si e do resto do conjunto. "
             "Cada jogo tem 6 dezenas em "
             "ordem crescente (menor à esquerda); passe o mouse sobre uma dezena para ver a coluna de origem (N1 a N30)."
         )
@@ -655,25 +654,27 @@ st.write(
     "Gerador exclusivo de jogos da Sena para o apostador base, a partir de 30 colunas "
     "com 2 dezenas âncora cada."
 )
-with st.expander("ℹ️ Como funciona: conjunto, lote e jogo", expanded=True):
+with st.expander("ℹ️ Como funciona: jogo, lote e conjunto", expanded=True):
     st.markdown(
-        "- **Jogo:** 6 dezenas, uma de cada coluna do bloco, exibidas em ordem crescente "
+        "- **Jogo:** 6 dezenas, uma de cada uma de 6 colunas diferentes, exibidas em ordem crescente "
         "(menor à esquerda), como o resultado do sorteio.\n"
-        f"- **Bloco:** a escolha de 6 colunas entre as 30. Gera **{n.JOGOS_POR_BLOCO} jogos**: cada coluna "
-        "contribui com as suas 2 dezenas, 32 vezes cada.\n"
-        f"- **Lote:** {n.JOGOS_POR_LOTE} jogos. Os blocos são agrupados de 5 em 5 e cada grupo forma 64 lotes: "
-        "o 1º jogo do lote é do próprio grupo e cada um dos outros 4 é herdado de um grupo diferente, "
-        "por um deslocamento fixo. Nenhum jogo se repete.\n"
+        f"- **Lote:** **{n.JOGOS_POR_LOTE} jogos**. É a unidade que você consulta e joga.\n"
         f"- **Conjunto:** todos os lotes do apostador: **{milhar(n.TOTAL_LOTES)} lotes**, "
-        f"ou **{milhar(n.TOTAL_JOGOS)} jogos**. É o que você gera, baixa e confere.\n"
-        "- O **código do apostador** e as **âncoras** definem a ordem dos blocos e dos jogos: "
+        f"ou **{milhar(n.TOTAL_JOGOS)} jogos**, sem nenhum jogo repetido. É o que você gera, baixa e confere.\n"
+        "- O **código do apostador** e as **âncoras** definem a ordem dos lotes e dos jogos: "
         "mesmo código e mesmas âncoras sempre geram o mesmo conjunto."
+    )
+    st.caption(
+        f"Bastidores: cada escolha de 6 colunas entre as 30 é um bloco de {n.JOGOS_POR_BLOCO} jogos. "
+        f"Os blocos são agrupados de 5 em 5 ({n.JOGOS_POR_BLOCO * 5} jogos por grupo) e cada grupo é redistribuído "
+        f"em {n.LOTES_POR_GRUPO} lotes de {n.JOGOS_POR_LOTE} jogos: o 1º jogo do lote vem do próprio grupo "
+        "e cada um dos outros 4 é herdado de um grupo diferente, por um deslocamento fixo."
     )
 
 st.subheader("Configuração das Âncoras (30 Colunas / 2 Dezenas por Coluna)")
 st.caption(
-    "As 60 dezenas (01 a 60) devem ser todas diferentes, em qualquer ordem. Cada jogo usa 6 colunas; "
-    "de cada uma, as 2 dezenas aparecem 32 vezes cada, em ordem sorteada. "
+    "As 60 dezenas (01 a 60) devem ser todas diferentes, em qualquer ordem. Cada jogo usa 6 colunas, "
+    "com 1 dezena de cada uma. "
     "Edite as células da tabela para definir as âncoras: use **Limpar** para começar do zero e "
     "preencher as 60 dezenas. Com as 60 dezenas válidas, **Definir como padrão** as guarda como o padrão do app; "
     "ao recarregar a página, a tabela volta ao padrão atual."
