@@ -333,6 +333,27 @@ def test_caixa_normalizar():
     assert caixa.normalizar({**ok, "listaRateioPremio": "lixo"})["premios"] == {}
 
 
+def test_golden_saida_estavel():
+    """Fixa a saída atual: falha se uma atualização (ex.: numpy) mudar o conjunto de um apostador.
+
+    Se a mudança for intencional, é uma nova versão do algoritmo: os conjuntos já emitidos mudam.
+    """
+    import hashlib
+
+    assert n.criar_id_lote(SEMENTE) == "36F1-CF0F"
+    ordem = n.ordem_dos_blocos(SEMENTE)
+    assert ordem[:5].tolist() == [318814, 319136, 412305, 230972, 572596]
+    assert hashlib.sha256(ordem[:1000].tobytes()).hexdigest() == (
+        "4637ff06c2867187ff831c9e1c8921c5d998bba4e00a409d4243e09e77ec97d0"
+    )
+    _, jogos = n.gerar_lotes(ANC, SEMENTE, np.array([0, 1, n.TOTAL_LOTES - 1]))
+    assert jogos[0].tolist() == [
+        [7, 11, 28, 32, 42, 47], [12, 16, 30, 39, 49, 57], [6, 9, 14, 26, 32, 43],
+        [7, 9, 15, 25, 33, 44], [9, 11, 16, 37, 42, 52],
+    ]
+    assert jogos[2, 4].tolist() == [20, 26, 30, 38, 42, 43]
+
+
 if __name__ == "__main__":
     for nome, fn in sorted(globals().items()):
         if nome.startswith("test_"):

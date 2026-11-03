@@ -1,2 +1,4 @@
 .streamlit/secrets.toml
 __pycache__/
+# Âncoras salvas pelo usuário no app: fazem parte do conjunto vendido, não vão para o repositório
+ancoras_padrao.json
