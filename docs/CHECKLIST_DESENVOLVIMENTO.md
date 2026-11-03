@@ -31,7 +31,9 @@ Legenda: `[x]` feito · `[ ]` a fazer · **(cliente)** depende de decisão ou ap
 - [ ] Trocar o Tailwind por CDN por um arquivo CSS compilado (velocidade e segurança)
 - [ ] Criar as páginas de **Política de Privacidade**, **Termos de uso** e **Reembolso** (com revisão jurídica)
 - [ ] Definir **domínio** próprio, razão social e CNPJ para o rodapé
-- [ ] Regra de limite de requisições (rate limit) para `/api/leads` na Cloudflare (WAF)
+- [ ] Rate limit para `/api/leads` na Cloudflare (WAF), contra envios em massa
+- [ ] Confirmação do e-mail (link enviado ao lead) antes de liberar o lote cortesia: hoje basta usar e-mail e WhatsApp novos para pedir outro
+- [ ] Trello lista até ~1.000 cartões por consulta: ao passar disso, mover os leads para um banco de dados
 - [ ] Instalar a análise de funil (visita → lead → compra) com consentimento de cookies, se aplicável
 - [ ] Imagem de compartilhamento (Open Graph), favicon e `robots.txt`/`sitemap.xml`
 - [ ] Revisar acessibilidade (contraste, foco, leitor de tela) e desempenho (Lighthouse ≥ 90)

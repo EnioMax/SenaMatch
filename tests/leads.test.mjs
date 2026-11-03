@@ -41,7 +41,9 @@ describe('POST /api/leads', () => {
     cartoes = [];
     globalThis.fetch = async (url, init = {}) => {
       chamadas.push({ url: String(url), init });
-      const corpo = String(url).includes('/lists/') ? cartoes : { id: 'novo' };
+      let corpo = { id: 'novo' };
+      if (String(url).includes('/lists/')) corpo = { idBoard: 'quadro1' };
+      else if (String(url).includes('/boards/')) corpo = cartoes;
       return new Response(JSON.stringify(corpo), { status: 200 });
     };
   });
@@ -58,11 +60,43 @@ describe('POST /api/leads', () => {
     assert.match(criar.init.headers.Authorization, /oauth_consumer_key="k", oauth_token="t"/);
     assert.ok(chamadas.every((c) => !c.url.includes('token=') && !c.url.includes('key=')));
   });
+  it('consulta o quadro inteiro, inclusive cartões arquivados', async () => {
+    await onRequestPost({ request: pedido(LEAD), env: ENV });
+    assert.ok(chamadas.some((c) => c.url.includes('/boards/quadro1/cards/all')));
+  });
   it('não duplica o lead do mesmo e-mail', async () => {
     cartoes = [{ desc: '**Nome:** X\n**E-mail:** maria@exemplo.com\n**WhatsApp:** 1' }];
     const r = await onRequestPost({ request: pedido(LEAD), env: ENV });
     assert.equal(r.status, 200);
     assert.ok(!chamadas.some((c) => c.init.method === 'POST'));
+  });
+  it('reconhece o e-mail mesmo que o Trello reformate o texto do cartão', async () => {
+    for (const desc of [
+      '**E-mail:** [maria@exemplo.com](mailto:maria@exemplo.com)\r\n**WhatsApp:** 2',
+      'Nome: X\r\nE-mail: MARIA@EXEMPLO.COM\r\n',
+      '**E-mail:** <maria@exemplo.com>',
+    ]) {
+      chamadas.length = 0;
+      cartoes = [{ desc }];
+      await onRequestPost({ request: pedido(LEAD), env: ENV });
+      assert.ok(!chamadas.some((c) => c.init.method === 'POST'), desc);
+    }
+  });
+  it('não duplica o mesmo WhatsApp com outro e-mail', async () => {
+    cartoes = [{ desc: '**E-mail:** outra@pessoa.com\n**WhatsApp:** 11912345678\n' }];
+    await onRequestPost({ request: pedido(LEAD), env: ENV });
+    assert.ok(!chamadas.some((c) => c.init.method === 'POST'));
+  });
+  it('trata variações do mesmo Gmail como a mesma pessoa', async () => {
+    cartoes = [{ desc: '**E-mail:** eniomax@gmail.com\n**WhatsApp:** 81999990000\n' }];
+    await onRequestPost({ request: pedido({ ...LEAD, email: 'enio.max+teste@gmail.com', whatsapp: '(81) 98888-7777' }), env: ENV });
+    assert.ok(!chamadas.some((c) => c.init.method === 'POST'));
+  });
+  it('cria cartão para pessoa nova, sem confundir e-mails parecidos', async () => {
+    cartoes = [{ desc: '**E-mail:** maria@exemplo.com\n**WhatsApp:** 11900000000\n' }];
+    const r = await onRequestPost({ request: pedido({ ...LEAD, email: 'ria@exemplo.com', whatsapp: '(21) 98888-7777' }), env: ENV });
+    assert.equal(r.status, 200);
+    assert.ok(chamadas.some((c) => c.init.method === 'POST'));
   });
   it('responde 400 para dados inválidos e não chama o Trello', async () => {
     const r = await onRequestPost({ request: pedido({ ...LEAD, consentimento: false }), env: ENV });

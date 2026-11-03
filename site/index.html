@@ -331,7 +331,7 @@
       try {
         const r = await fetch(LEADS_ENDPOINT, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(lead) });
         if (!r.ok) throw new Error('http ' + r.status);
-        aviso('Pedido recebido! Em breve enviaremos seu lote cortesia por e-mail e WhatsApp.', true);
+        aviso('Pedido recebido! Enviaremos seu lote cortesia por e-mail e WhatsApp. O lote cortesia é um por pessoa: se estes dados já foram usados, o lote anterior continua valendo.', true);
         form.reset();
       } catch {
         aviso('Não conseguimos enviar agora. Seus dados continuam no formulário: tente de novo em instantes.', false);

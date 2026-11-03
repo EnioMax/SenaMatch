@@ -37,6 +37,31 @@ const descricao = (l, quando) => [
   `**Status:** lote cortesia pendente`,
 ].join('\n');
 
+// Forma canônica do e-mail para comparar pessoas: ignora "+etiqueta" e, no Gmail, os pontos
+export function chaveEmail(email) {
+  const [local = '', dominio = ''] = String(email).toLowerCase().split('@');
+  const base = local.split('+')[0];
+  const gmail = dominio === 'gmail.com' || dominio === 'googlemail.com';
+  return (gmail ? base.replace(/\./g, '') : base) + '@' + (gmail ? 'gmail.com' : dominio);
+}
+
+const chaveWhatsapp = (digitos) => {
+  const d = String(digitos).replace(/\D/g, '');
+  return /^55\d{10,11}$/.test(d) ? d.slice(2) : d;
+};
+
+// Procura o e-mail ou o WhatsApp do lead nos cartões existentes, sem depender de como o Trello formatou o texto
+export function jaCadastrado(cartoes, lead) {
+  const email = chaveEmail(lead.email);
+  return cartoes.some((c) => {
+    const desc = String(c.desc ?? '').toLowerCase();
+    const emails = (desc.match(/[^\s<>()[\]*"',;:]+@[^\s<>()[\]*"',;:]+/g) || []).map(chaveEmail);
+    if (emails.includes(email)) return true;
+    const zap = desc.match(/whatsapp:[*\s]*([+\d\s().-]+)/);
+    return Boolean(zap) && chaveWhatsapp(zap[1]) === lead.whatsapp;
+  });
+}
+
 async function trello(env, caminho, init = {}) {
   const r = await fetch(TRELLO + caminho, {
     ...init,
@@ -68,9 +93,10 @@ export async function onRequestPost({ request, env }) {
   if (erro) return json({ ok: false, erro }, 400);
 
   try {
-    // Um lead por e-mail: repetidos recebem a mesma resposta, sem criar outro cartão
-    const existentes = await trello(env, `/lists/${encodeURIComponent(env.TRELLO_LIST_ID)}/cards?fields=desc`);
-    if (existentes.some((c) => String(c.desc).includes(`**E-mail:** ${lead.email}\n`))) return json({ ok: true });
+    // Um lote por pessoa: confere o quadro inteiro (todas as listas e cartões arquivados), por e-mail ou WhatsApp
+    const { idBoard } = await trello(env, `/lists/${encodeURIComponent(env.TRELLO_LIST_ID)}?fields=idBoard`);
+    const existentes = await trello(env, `/boards/${encodeURIComponent(idBoard)}/cards/all?fields=desc`);
+    if (jaCadastrado(existentes, lead)) return json({ ok: true });
 
     await trello(env, '/cards', {
       method: 'POST',
