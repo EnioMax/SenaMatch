@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#020617">
+  <meta name="description" content="SenaMatch: lotes exclusivos de 5 jogos da Mega-Sena, entregues prontos para copiar e conferidos automaticamente a cada sorteio. Peça seu lote cortesia.">
+  <title>SenaMatch · Lotes exclusivos de jogos da Mega-Sena, conferidos por você</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = { theme: { extend: { fontFamily: { sans: ['"Bricolage Grotesque"', 'system-ui', 'sans-serif'] } } } };
+  </script>
+  <style>
+    @media (prefers-reduced-motion: reduce) { * { transition: none !important; scroll-behavior: auto !important; } }
+    [id] { scroll-margin-top: 5rem; }
+  </style>
+</head>
+<body class="min-h-screen bg-slate-950 font-sans text-slate-100 antialiased">
+
+  <a href="#conteudo" class="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-50 focus:rounded-lg focus:bg-amber-400 focus:px-4 focus:py-2 focus:font-semibold focus:text-slate-900">Pular para o conteúdo</a>
+
+  <header class="sticky top-0 z-30 border-b border-slate-800 bg-slate-950/90 pt-[env(safe-area-inset-top)] backdrop-blur">
+    <div class="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
+      <a href="index.html" class="rounded-lg text-xl font-extrabold text-amber-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-emerald-400">SenaMatch</a>
+      <nav aria-label="Principal" class="flex items-center gap-2">
+        <a href="#como-funciona" class="hidden min-h-[44px] items-center rounded-xl px-3 text-sm font-semibold text-slate-300 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-400 sm:flex">Como funciona</a>
+        <a href="#pacotes" class="hidden min-h-[44px] items-center rounded-xl px-3 text-sm font-semibold text-slate-300 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-400 sm:flex">Pacotes</a>
+        <a href="cliente.html" class="flex min-h-[44px] items-center rounded-xl border border-slate-600 px-4 text-sm font-semibold text-amber-300 transition-all duration-200 hover:bg-slate-800 active:scale-[.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-400">Entrar</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="conteudo">
+    <!-- Hero -->
+    <section class="mx-auto grid max-w-5xl items-center gap-10 px-4 py-12 md:grid-cols-2 md:py-20" aria-labelledby="titulo-hero">
+      <div>
+        <p class="mb-3 inline-block rounded-full border border-emerald-400/40 bg-emerald-400/10 px-3 py-1 text-xs font-semibold text-emerald-300">Lote cortesia grátis para o próximo concurso</p>
+        <h1 id="titulo-hero" class="text-4xl font-extrabold leading-tight sm:text-5xl">Seu lote exclusivo de jogos da Mega-Sena, conferido por nós a cada sorteio.</h1>
+        <p class="mt-5 max-w-[60ch] text-base leading-relaxed text-slate-300 sm:text-lg">
+          Cada lote tem 5 jogos que <strong class="font-semibold text-white">nenhum outro cliente recebe</strong>. Você copia, aposta onde preferir e acompanha o resultado automaticamente.
+        </p>
+        <div class="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
+          <a href="#cortesia" class="flex min-h-[56px] items-center justify-center rounded-xl bg-emerald-600 px-6 text-base font-semibold text-white transition-all duration-200 hover:bg-emerald-500 active:scale-[.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-400">Quero meu lote grátis</a>
+          <a href="#como-funciona" class="flex min-h-[56px] items-center justify-center rounded-xl px-4 text-base font-semibold text-amber-300 hover:text-amber-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-400">Ver como funciona</a>
+        </div>
+        <ul class="mt-6 space-y-1 text-sm text-slate-400">
+          <li>Sem cartão de crédito. Leva menos de 1 minuto.</li>
+          <li>Um lote por pessoa. Só para maiores de 18 anos.</li>
+        </ul>
+      </div>
+
+      <!-- Último sorteio (dados oficiais quando disponíveis) -->
+      <div class="rounded-2xl border border-amber-400/40 bg-slate-900 p-5" role="group" aria-labelledby="ultimo-titulo">
+        <h2 id="ultimo-titulo" class="text-base font-semibold">Último sorteio da Mega-Sena</h2>
+        <div id="ultimo-conteudo" class="mt-4">
+          <p class="text-sm text-slate-300">Não foi possível carregar o último resultado agora. Confira no site oficial da Caixa.</p>
+        </div>
+        <p class="mt-4 rounded-xl bg-slate-800/70 px-3 py-2 text-sm text-slate-300">É assim que a conferência funciona: após cada sorteio, comparamos as dezenas com todos os jogos do seu lote e mostramos quadras, quinas e senas.</p>
+        <a href="https://loterias.caixa.gov.br" target="_blank" rel="noopener noreferrer"
+           class="mt-4 flex min-h-[48px] items-center justify-center rounded-xl border border-slate-600 px-4 text-sm font-semibold text-amber-300 transition-all duration-200 hover:bg-slate-800 active:scale-[.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-400">Ver resultados no site da Caixa<span class="sr-only"> (abre em nova aba)</span></a>
+        <p class="mt-2 text-xs text-slate-500">O site da Caixa pede confirmação de maioridade (18 anos ou mais).</p>
+      </div>
+    </section>
+
+    <!-- Como funciona -->
+    <section id="como-funciona" class="mx-auto max-w-5xl px-4 pb-12" aria-labelledby="titulo-como">
+      <h2 id="titulo-como" class="mb-2 text-2xl font-extrabold">Como funciona</h2>
+      <p class="mb-6 max-w-[60ch] text-sm text-slate-400">Três passos, do pedido à conferência.</p>
+      <ol class="grid gap-4 md:grid-cols-3">
+        <li class="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+          <span class="mb-3 flex h-9 w-9 items-center justify-center rounded-full bg-amber-400 text-base font-extrabold text-slate-900" aria-hidden="true">1</span>
+          <h3 class="text-lg font-semibold">Receba seu lote</h3>
+          <p class="mt-2 text-sm leading-relaxed text-slate-300">Peça o lote cortesia ou escolha um pacote. Seus jogos chegam na área do cliente e por e-mail.</p>
+        </li>
+        <li class="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+          <span class="mb-3 flex h-9 w-9 items-center justify-center rounded-full bg-amber-400 text-base font-extrabold text-slate-900" aria-hidden="true">2</span>
+          <h3 class="text-lg font-semibold">Aposte onde preferir</h3>
+          <p class="mt-2 text-sm leading-relaxed text-slate-300">Copie os jogos com um toque e aposte na lotérica ou no app da Caixa. Marque o que já apostou, com barra de progresso.</p>
+        </li>
+        <li class="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+          <span class="mb-3 flex h-9 w-9 items-center justify-center rounded-full bg-amber-400 text-base font-extrabold text-slate-900" aria-hidden="true">3</span>
+          <h3 class="text-lg font-semibold">Conferimos para você</h3>
+          <p class="mt-2 text-sm leading-relaxed text-slate-300">Depois de cada sorteio, seu lote é conferido e você vê os acertos destacados, sem precisar comparar número por número.</p>
+        </li>
+      </ol>
+      <p class="mt-4 text-sm text-slate-400">O SenaMatch não vende apostas e não paga prêmios: a aposta é feita por você diretamente na Caixa.</p>
+    </section>
+
+    <!-- O que você recebe -->
+    <section class="mx-auto max-w-5xl px-4 pb-12" aria-labelledby="titulo-func">
+      <h2 id="titulo-func" class="mb-5 text-2xl font-extrabold">O que você recebe</h2>
+      <div class="grid gap-4 md:grid-cols-3">
+        <article class="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+          <svg class="mb-3 h-8 w-8 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
+          <h3 class="text-lg font-semibold">Lote exclusivo</h3>
+          <p class="mt-2 text-sm leading-relaxed text-slate-300">São 7.600.320 lotes numerados, e cada um é entregue a um único cliente. Ninguém mais recebe os mesmos jogos.</p>
+        </article>
+        <article class="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+          <svg class="mb-3 h-8 w-8 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+          <h3 class="text-lg font-semibold">Jogos equilibrados</h3>
+          <p class="mt-2 text-sm leading-relaxed text-slate-300">Todas as 60 dezenas aparecem na mesma quantidade de jogos do universo SenaMatch. Nenhuma dezena é favorecida.</p>
+        </article>
+        <article class="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+          <svg class="mb-3 h-8 w-8 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m8 12.5 2.8 2.8L16.5 9.5"/></svg>
+          <h3 class="text-lg font-semibold">Conferência automática</h3>
+          <p class="mt-2 text-sm leading-relaxed text-slate-300">Quadras, quinas e senas destacadas nos seus jogos após cada sorteio, também em concursos anteriores.</p>
+        </article>
+      </div>
+    </section>
+
+    <!-- Pacotes -->
+    <section id="pacotes" class="mx-auto max-w-5xl px-4 pb-12" aria-labelledby="titulo-pacotes">
+      <h2 id="titulo-pacotes" class="mb-2 text-2xl font-extrabold">Pacotes</h2>
+      <p class="mb-6 max-w-[65ch] text-sm text-slate-400">A venda abre em breve. Quem pede o lote cortesia entra primeiro na lista, com o preço de lançamento. O valor das apostas na Caixa não está incluso: o preço abaixo é só pelo lote e pela conferência.</p>
+      <div class="grid gap-4 md:grid-cols-3">
+        <article class="flex flex-col rounded-2xl border border-slate-800 bg-slate-900 p-5">
+          <h3 class="text-lg font-semibold">Avulso</h3>
+          <p class="mt-3"><span class="text-3xl font-extrabold">R$ 9,90</span></p>
+          <p class="mt-1 text-sm text-slate-400">1 lote · 5 jogos</p>
+          <ul class="mt-4 flex-1 space-y-2 text-sm text-slate-300">
+            <li>Lote exclusivo numerado</li>
+            <li>Conferência automática</li>
+          </ul>
+        </article>
+        <article class="relative flex flex-col rounded-2xl border-2 border-amber-400 bg-slate-900 p-5">
+          <p class="absolute -top-3 left-5 rounded-full bg-amber-400 px-3 py-0.5 text-xs font-extrabold text-slate-900">Mais escolhido</p>
+          <h3 class="text-lg font-semibold">Trio</h3>
+          <p class="mt-3"><span class="text-3xl font-extrabold">R$ 24,90</span></p>
+          <p class="mt-1 text-sm text-slate-400">3 lotes · 15 jogos · R$ 8,30 por lote</p>
+          <ul class="mt-4 flex-1 space-y-2 text-sm text-slate-300">
+            <li>3 lotes exclusivos, sem repetição entre si</li>
+            <li>Conferência automática</li>
+            <li>Download em CSV</li>
+          </ul>
+        </article>
+        <article class="flex flex-col rounded-2xl border border-slate-800 bg-slate-900 p-5">
+          <h3 class="text-lg font-semibold">Turbo</h3>
+          <p class="mt-3"><span class="text-3xl font-extrabold">R$ 69,90</span></p>
+          <p class="mt-1 text-sm text-slate-400">10 lotes · 50 jogos · R$ 6,99 por lote</p>
+          <ul class="mt-4 flex-1 space-y-2 text-sm text-slate-300">
+            <li>10 lotes exclusivos, sem repetição entre si</li>
+            <li>Conferência automática</li>
+            <li>Download em CSV</li>
+          </ul>
+        </article>
+      </div>
+      <a href="#cortesia" class="mt-6 flex min-h-[56px] items-center justify-center rounded-xl bg-emerald-600 px-6 text-base font-semibold text-white transition-all duration-200 hover:bg-emerald-500 active:scale-[.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-400 sm:inline-flex">Entrar na lista e ganhar o lote cortesia</a>
+    </section>
+
+    <!-- FAQ -->
+    <section id="faq" class="mx-auto max-w-3xl px-4 pb-12" aria-labelledby="titulo-faq">
+      <h2 id="titulo-faq" class="mb-5 text-2xl font-extrabold">Perguntas frequentes</h2>
+      <div class="space-y-3">
+        <details class="group rounded-2xl border border-slate-800 bg-slate-900 p-4">
+          <summary class="flex min-h-[44px] cursor-pointer items-center justify-between gap-3 text-base font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-400">Os jogos do SenaMatch aumentam minha chance de ganhar?<span class="text-amber-400 transition-transform group-open:rotate-45" aria-hidden="true">+</span></summary>
+          <p class="mt-2 text-sm leading-relaxed text-slate-300">Não. Todo jogo da Mega-Sena tem a mesma chance de ser sorteado, 1 em 50.063.860. O que oferecemos é um lote exclusivo, com dezenas distribuídas de forma equilibrada, e a conferência automática. A Mega-Sena é um jogo de sorte.</p>
+        </details>
+        <details class="group rounded-2xl border border-slate-800 bg-slate-900 p-4">
+          <summary class="flex min-h-[44px] cursor-pointer items-center justify-between gap-3 text-base font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-400">O SenaMatch faz a aposta por mim?<span class="text-amber-400 transition-transform group-open:rotate-45" aria-hidden="true">+</span></summary>
+          <p class="mt-2 text-sm leading-relaxed text-slate-300">Não. Você recebe a lista de jogos e aposta por conta própria na lotérica ou no app da Caixa. O SenaMatch não vende apostas, não recebe prêmios e não tem vínculo com a Caixa.</p>
+        </details>
+        <details class="group rounded-2xl border border-slate-800 bg-slate-900 p-4">
+          <summary class="flex min-h-[44px] cursor-pointer items-center justify-between gap-3 text-base font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-400">O que significa "lote exclusivo"?<span class="text-amber-400 transition-transform group-open:rotate-45" aria-hidden="true">+</span></summary>
+          <p class="mt-2 text-sm leading-relaxed text-slate-300">Um lote é um conjunto numerado de 5 jogos. Depois que um lote é entregue a um cliente, ele não é vendido a mais ninguém. Seus jogos podem coincidir com os de outras pessoas que escolheram os mesmos números por conta própria, mas não com os de outro cliente do SenaMatch.</p>
+        </details>
+        <details class="group rounded-2xl border border-slate-800 bg-slate-900 p-4">
+          <summary class="flex min-h-[44px] cursor-pointer items-center justify-between gap-3 text-base font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-400">O lote cortesia é mesmo grátis?<span class="text-amber-400 transition-transform group-open:rotate-45" aria-hidden="true">+</span></summary>
+          <p class="mt-2 text-sm leading-relaxed text-slate-300">Sim. É um lote por pessoa, sem cartão de crédito. Em troca, pedimos seu e-mail e WhatsApp para entregar o lote e avisar o resultado. Você pode cancelar os avisos quando quiser. O valor para apostar na Caixa é por sua conta.</p>
+        </details>
+        <details class="group rounded-2xl border border-slate-800 bg-slate-900 p-4">
+          <summary class="flex min-h-[44px] cursor-pointer items-center justify-between gap-3 text-base font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-400">Como acesso meus lotes depois?<span class="text-amber-400 transition-transform group-open:rotate-45" aria-hidden="true">+</span></summary>
+          <p class="mt-2 text-sm leading-relaxed text-slate-300">Sem senha: você informa seu e-mail e enviamos um link de acesso. Na área do cliente você copia os jogos, baixa a lista e vê a conferência.</p>
+        </details>
+      </div>
+    </section>
+
+    <!-- Captação -->
+    <section id="cortesia" class="mx-auto max-w-5xl px-4 pb-12" aria-labelledby="titulo-lead">
+      <div class="grid gap-8 rounded-2xl border border-emerald-400/40 bg-slate-900 p-6 md:grid-cols-2 md:p-8">
+        <div>
+          <h2 id="titulo-lead" class="text-2xl font-extrabold sm:text-3xl">Peça seu lote cortesia</h2>
+          <p class="mt-3 max-w-[50ch] text-base leading-relaxed text-slate-300">Receba 5 jogos exclusivos para o próximo concurso e veja a conferência depois do sorteio, sem pagar nada.</p>
+          <ul class="mt-5 space-y-2 text-sm text-slate-300">
+            <li>1 lote numerado, só seu</li>
+            <li>Conferência automática do resultado</li>
+            <li>Preço de lançamento nos pacotes</li>
+          </ul>
+        </div>
+
+        <form id="form-lead" novalidate class="space-y-4" aria-describedby="lead-status">
+          <div>
+            <label for="lead-nome" class="mb-1 block text-sm font-semibold">Nome</label>
+            <input id="lead-nome" name="nome" type="text" autocomplete="name" required maxlength="80"
+              class="min-h-[48px] w-full rounded-xl border border-slate-600 bg-slate-950 px-4 text-base text-white placeholder-slate-500 focus:border-emerald-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-400">
+            <p id="erro-nome" class="mt-1 hidden text-sm text-red-300" role="alert"></p>
+          </div>
+          <div>
+            <label for="lead-email" class="mb-1 block text-sm font-semibold">E-mail</label>
+            <input id="lead-email" name="email" type="email" autocomplete="email" inputmode="email" required maxlength="120" placeholder="voce@exemplo.com"
+              class="min-h-[48px] w-full rounded-xl border border-slate-600 bg-slate-950 px-4 text-base text-white placeholder-slate-500 focus:border-emerald-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-400">
+            <p id="erro-email" class="mt-1 hidden text-sm text-red-300" role="alert"></p>
+          </div>
+          <div>
+            <label for="lead-whatsapp" class="mb-1 block text-sm font-semibold">WhatsApp com DDD</label>
+            <input id="lead-whatsapp" name="whatsapp" type="tel" autocomplete="tel-national" inputmode="numeric" required maxlength="16" placeholder="(11) 91234-5678"
+              class="min-h-[48px] w-full rounded-xl border border-slate-600 bg-slate-950 px-4 text-base text-white placeholder-slate-500 focus:border-emerald-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-400">
+            <p id="erro-whatsapp" class="mt-1 hidden text-sm text-red-300" role="alert"></p>
+          </div>
+
+          <!-- Campo isca contra robôs: invisível para pessoas -->
+          <div class="absolute -left-[9999px] h-0 w-0 overflow-hidden" aria-hidden="true">
+            <label for="lead-site">Não preencha este campo</label>
+            <input id="lead-site" name="site" type="text" tabindex="-1" autocomplete="off">
+          </div>
+
+          <div>
+            <label class="flex min-h-[44px] items-start gap-3 text-sm text-slate-300">
+              <input id="lead-maior" name="maior18" type="checkbox" required class="mt-1 h-5 w-5 shrink-0 accent-emerald-500">
+              <span>Tenho 18 anos ou mais.</span>
+            </label>
+            <p id="erro-maior" class="mt-1 hidden text-sm text-red-300" role="alert"></p>
+          </div>
+          <div>
+            <label class="flex min-h-[44px] items-start gap-3 text-sm text-slate-300">
+              <input id="lead-consent" name="consentimento" type="checkbox" required class="mt-1 h-5 w-5 shrink-0 accent-emerald-500">
+              <span>Concordo em receber meu lote e os resultados por e-mail e WhatsApp, conforme a <a href="#privacidade" class="font-semibold text-amber-300 underline">política de privacidade</a>. Posso cancelar quando quiser.</span>
+            </label>
+            <p id="erro-consent" class="mt-1 hidden text-sm text-red-300" role="alert"></p>
+          </div>
+
+          <button id="lead-enviar" type="submit"
+            class="flex min-h-[56px] w-full items-center justify-center rounded-xl bg-emerald-600 px-6 text-base font-semibold text-white transition-all duration-200 hover:bg-emerald-500 active:scale-[.98] disabled:opacity-60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-400">Quero meu lote grátis</button>
+          <p id="lead-status" class="hidden rounded-xl px-4 py-3 text-sm" role="status" aria-live="polite" tabindex="-1"></p>
+          <p class="text-xs text-slate-500">Não enviamos spam. Seus dados são usados só para entregar o lote e avisar os resultados.</p>
+        </form>
+      </div>
+    </section>
+
+    <!-- Aviso -->
+    <section class="mx-auto max-w-5xl px-4 pb-12">
+      <div class="rounded-2xl border border-amber-400/40 bg-amber-400/10 p-5">
+        <h2 class="text-base font-semibold text-amber-200">Jogue com responsabilidade</h2>
+        <p class="mt-2 max-w-[70ch] text-sm leading-relaxed text-amber-100/90">
+          A Mega-Sena é um jogo de sorte. Nenhum lote ou método aumenta a probabilidade de acerto, e resultados passados não garantem resultados futuros. Apostas são permitidas apenas para maiores de 18 anos. Aposte só o que você pode perder.
+        </p>
+      </div>
+    </section>
+
+    <section id="privacidade" class="mx-auto max-w-5xl px-4 pb-12" aria-labelledby="titulo-priv">
+      <h2 id="titulo-priv" class="text-base font-semibold">Privacidade</h2>
+      <p class="mt-2 max-w-[70ch] text-sm leading-relaxed text-slate-400">Usamos nome, e-mail e WhatsApp apenas para entregar seu lote, avisar os resultados e, se você concordou, enviar ofertas do SenaMatch. Esses dados ficam guardados em uma ferramenta de gestão (Trello), que pode armazená-los fora do Brasil. Você pode pedir a exclusão dos seus dados ou cancelar os avisos a qualquer momento. A política de privacidade completa será publicada antes da abertura das vendas.</p>
+    </section>
+  </main>
+
+  <footer class="border-t border-slate-800 pb-[calc(5.5rem+env(safe-area-inset-bottom))] pt-6 sm:pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
+    <div class="mx-auto flex max-w-5xl flex-col gap-2 px-4 text-xs text-slate-500 sm:flex-row sm:justify-between">
+      <p>© 2026 SenaMatch. Ferramenta independente, sem vínculo com a Caixa Econômica Federal. Proibido para menores de 18 anos.</p>
+      <p><a href="#privacidade" class="underline hover:text-slate-300">Privacidade</a></p>
+    </div>
+  </footer>
+
+  <!-- CTA fixo no celular; some quando o formulário está visível -->
+  <div id="cta-fixo" class="fixed inset-x-0 bottom-0 z-30 border-t border-slate-800 bg-slate-950/95 px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 backdrop-blur transition-transform duration-200 sm:hidden">
+    <a href="#cortesia" class="flex min-h-[52px] items-center justify-center rounded-xl bg-emerald-600 px-6 text-base font-semibold text-white active:scale-[.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-400">Quero meu lote grátis</a>
+  </div>
+
+  <script>
+  (() => {
+    'use strict';
+    // Função da Cloudflare (functions/api/leads.js) que grava o lead no Trello
+    const LEADS_ENDPOINT = '/api/leads';
+    const form = document.getElementById('form-lead');
+    const status = document.getElementById('lead-status');
+    const botao = document.getElementById('lead-enviar');
+    if (!form) return;
+
+    const campos = {
+      nome: { el: form.elements.nome, erro: 'erro-nome' },
+      email: { el: form.elements.email, erro: 'erro-email' },
+      whatsapp: { el: form.elements.whatsapp, erro: 'erro-whatsapp' },
+      maior18: { el: form.elements.maior18, erro: 'erro-maior' },
+      consentimento: { el: form.elements.consentimento, erro: 'erro-consent' },
+    };
+    const digitos = (s) => s.replace(/\D/g, '');
+
+    function validar() {
+      const v = {
+        nome: form.elements.nome.value.trim(),
+        email: form.elements.email.value.trim(),
+        whatsapp: digitos(form.elements.whatsapp.value).replace(/^55(?=\d{10,11}$)/, ''),
+      };
+      const erros = {};
+      if (v.nome.length < 2) erros.nome = 'Informe seu nome.';
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.email)) erros.email = 'Informe um e-mail válido, como voce@exemplo.com.';
+      if (!/^[1-9]\d9?\d{8}$/.test(v.whatsapp)) erros.whatsapp = 'Informe o WhatsApp com DDD, por exemplo (11) 91234-5678.';
+      if (!form.elements.maior18.checked) erros.maior18 = 'O lote é só para maiores de 18 anos.';
+      if (!form.elements.consentimento.checked) erros.consentimento = 'Precisamos da sua concordância para enviar o lote.';
+      return { v, erros };
+    }
+    function mostrarErros(erros) {
+      for (const [nome, { el, erro }] of Object.entries(campos)) {
+        const p = document.getElementById(erro);
+        const msg = erros[nome];
+        p.textContent = msg || '';
+        p.classList.toggle('hidden', !msg);
+        el.setAttribute('aria-invalid', msg ? 'true' : 'false');
+        if (msg) el.setAttribute('aria-describedby', erro); else el.removeAttribute('aria-describedby');
+      }
+    }
+    function aviso(msg, ok) {
+      status.textContent = msg;
+      status.className = 'rounded-xl px-4 py-3 text-sm ' + (ok
+        ? 'border border-emerald-400/40 bg-emerald-400/10 text-emerald-200'
+        : 'border border-red-400/40 bg-red-400/10 text-red-200');
+      status.focus();
+    }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      status.className = 'hidden';
+      const { v, erros } = validar();
+      mostrarErros(erros);
+      const primeiro = Object.keys(erros)[0];
+      if (primeiro) { campos[primeiro].el.focus(); return; }
+      const lead = { nome: v.nome, email: v.email, whatsapp: v.whatsapp, maior18: true, consentimento: true, origem: 'landing-cortesia', site: form.elements.site.value };
+      botao.disabled = true;
+      botao.textContent = 'Enviando…';
+      try {
+        const r = await fetch(LEADS_ENDPOINT, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(lead) });
+        if (!r.ok) throw new Error('http ' + r.status);
+        aviso('Pedido recebido! Em breve enviaremos seu lote cortesia por e-mail e WhatsApp.', true);
+        form.reset();
+      } catch {
+        aviso('Não conseguimos enviar agora. Seus dados continuam no formulário: tente de novo em instantes.', false);
+      } finally {
+        botao.disabled = false;
+        botao.textContent = 'Quero meu lote grátis';
+      }
+    });
+    form.addEventListener('input', (e) => {
+      const nome = e.target.name;
+      const c = campos[nome];
+      if (!c || document.getElementById(c.erro).classList.contains('hidden')) return;
+      if (!validar().erros[nome]) {   // limpa só o erro do campo que acabou de ser corrigido
+        const p = document.getElementById(c.erro);
+        p.textContent = '';
+        p.classList.add('hidden');
+        c.el.setAttribute('aria-invalid', 'false');
+        c.el.removeAttribute('aria-describedby');
+      }
+    });
+
+    // Esconde o CTA fixo enquanto o formulário aparece na tela
+    const cta = document.getElementById('cta-fixo');
+    const alvo = document.getElementById('cortesia');
+    if (cta && alvo && 'IntersectionObserver' in window) {
+      new IntersectionObserver(([en]) => { cta.style.transform = en.isIntersecting ? 'translateY(100%)' : ''; }, { threshold: 0.15 }).observe(alvo);
+    }
+  })();
+  </script>
+
+  <script>
+  (() => {
+    'use strict';
+    const API = 'https://servicebus2.caixa.gov.br/portaldeloterias/api/megasena';
+    const box = document.getElementById('ultimo-conteudo');
+    if (!box) return;
+    const el = (tag, cls, txt) => {
+      const e = document.createElement(tag);
+      if (cls) e.className = cls;
+      if (txt !== undefined) e.textContent = txt;   // textContent: nunca insere HTML vindo da API
+      return e;
+    };
+    const pad = (n) => String(n).padStart(2, '0');
+
+    function carregando() {
+      box.classList.add('min-h-[104px]');   // reserva a altura só durante o carregamento
+      const lista = el('div', 'flex flex-wrap gap-2');
+      lista.setAttribute('aria-hidden', 'true');
+      for (let i = 0; i < 6; i++) lista.appendChild(el('span', 'h-11 w-11 animate-pulse rounded-full bg-slate-800 motion-reduce:animate-none'));
+      box.replaceChildren(lista, el('span', 'sr-only', 'Carregando o último resultado'));
+    }
+    function indisponivel() {
+      box.classList.remove('min-h-[104px]');
+      box.replaceChildren(el('p', 'text-sm text-slate-300', 'Não foi possível carregar o último resultado agora. Confira no site oficial da Caixa.'));
+    }
+    // Aceita só dados válidos: concurso inteiro e 6 dezenas distintas entre 1 e 60
+    function normalizar(d) {
+      if (!d || typeof d !== 'object') return null;
+      const numero = Number(d.numero ?? d.concurso);
+      const bruto = d.listaDezenas ?? d.dezenasSorteadas ?? d.dezenas;
+      const dezenas = Array.isArray(bruto) ? bruto.map(Number) : [];
+      const data = String(d.dataApuracao ?? d.dataDoConcurso ?? d.data ?? '');
+      if (!Number.isInteger(numero) || numero < 1) return null;
+      if (dezenas.length !== 6 || dezenas.some((n) => !Number.isInteger(n) || n < 1 || n > 60) || new Set(dezenas).size !== 6) return null;
+      return { numero, dezenas: dezenas.sort((a, b) => a - b), data: /^\d{2}\/\d{2}\/\d{4}$/.test(data) ? data : '' };
+    }
+    function mostrar({ numero, dezenas, data }) {
+      box.classList.remove('min-h-[104px]');
+      const lista = el('ol', 'mt-3 flex flex-wrap gap-2');
+      lista.setAttribute('aria-label', 'Dezenas sorteadas');
+      dezenas.forEach((n) => lista.appendChild(el('li', 'flex h-11 w-11 items-center justify-center rounded-full bg-amber-400 text-base font-extrabold text-slate-900', pad(n))));
+      box.replaceChildren(
+        el('p', 'text-sm text-slate-400', `Concurso ${numero}${data ? ' · ' + data : ''}`),
+        lista,
+        el('p', 'mt-3 text-xs text-slate-500', 'Fonte: Loterias CAIXA.')
+      );
+    }
+    async function carregar() {
+      carregando();
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), 8000);
+      try {
+        const r = await fetch(API, { signal: ctrl.signal });
+        if (!r.ok) throw new Error('http ' + r.status);
+        const dados = normalizar(await r.json());
+        if (!dados) throw new Error('formato inesperado');
+        mostrar(dados);
+      } catch { indisponivel(); }
+      finally { clearTimeout(t); }
+    }
+    carregar();
+  })();
+  </script>
+</body>
+</html>

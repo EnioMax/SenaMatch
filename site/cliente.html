@@ -27,7 +27,7 @@
     <div class="mx-auto max-w-5xl px-4 pt-3">
       <div class="flex items-baseline justify-between gap-3">
         <a href="index.html" class="text-xl font-extrabold text-amber-400 hover:opacity-80 transition-opacity focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-400">SenaMatch</a>
-        <p class="text-sm text-slate-400" id="lote-codigo">Lote #Sena-2026-004</p>
+        <p class="text-sm text-slate-400" id="lote-codigo">Lote</p>
       </div>
       <nav class="mt-2 grid grid-cols-3" role="tablist" aria-label="Seções da área do cliente">
         <button type="button" role="tab" id="tab-jogos" data-aba="jogos" aria-controls="aba-jogos"
@@ -47,20 +47,20 @@
       <div class="space-y-3">
         <div class="flex items-baseline justify-between gap-3">
           <h1 class="text-lg font-extrabold">Meus jogos</h1>
-          <p class="text-sm text-slate-300" id="progresso-texto" aria-live="polite">0 / 64 jogos apostados</p>
+          <p class="text-sm text-slate-300" id="progresso-texto" aria-live="polite">0 / 5 jogos apostados</p>
         </div>
         <div class="h-3 w-full overflow-hidden rounded-full bg-slate-800" role="progressbar" aria-label="Jogos apostados"
-             aria-valuemin="0" aria-valuemax="64" aria-valuenow="0" id="progresso-barra">
+             aria-valuemin="0" aria-valuemax="5" aria-valuenow="0" id="progresso-barra">
           <div id="progresso-preenchimento" class="h-full w-0 rounded-full bg-amber-400 transition-all duration-200 motion-reduce:transition-none"></div>
         </div>
         <div class="grid grid-cols-2 gap-2">
           <button id="btn-copiar-todos" type="button"
-            class="min-h-[48px] rounded-xl bg-emerald-600 px-3 text-sm font-semibold text-white transition-all duration-200 hover:bg-emerald-500 active:scale-[.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-400">Copiar todos os 64 jogos</button>
+            class="min-h-[48px] rounded-xl bg-emerald-600 px-3 text-sm font-semibold text-white transition-all duration-200 hover:bg-emerald-500 active:scale-[.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-400">Copiar os 5 jogos</button>
           <button id="btn-baixar" type="button"
             class="min-h-[48px] rounded-xl border border-slate-600 px-3 text-sm font-semibold transition-all duration-200 hover:bg-slate-800 active:scale-[.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-400">Baixar arquivo TXT</button>
         </div>
       </div>
-      <p id="mensagem-completo" class="hidden rounded-xl border border-amber-400/40 bg-amber-400/10 px-4 py-3 text-sm text-amber-200">Lote completo: os 64 jogos foram apostados.</p>
+      <p id="mensagem-completo" class="hidden rounded-xl border border-amber-400/40 bg-amber-400/10 px-4 py-3 text-sm text-amber-200">Lote completo: os 5 jogos foram apostados.</p>
       <ul id="lista-jogos" class="grid grid-cols-1 gap-3 md:grid-cols-2"></ul>
     </section>
 
@@ -94,7 +94,7 @@
     <!-- ABA 3: SIMULADOR ESTRATÉGICO -->
     <section id="aba-simulador" role="tabpanel" aria-labelledby="tab-simulador" class="hidden space-y-5">
       <h2 class="text-lg font-extrabold">Simulador estratégico</h2>
-      <p class="text-sm text-slate-300">Veja como o seu lote atual de 64 jogos teria se saído nos concursos recentes.</p>
+      <p class="text-sm text-slate-300">Veja como o seu lote atual de 5 jogos teria se saído nos concursos recentes. Simulação com sorteios de demonstração: resultados passados não indicam resultados futuros.</p>
 
       <div role="radiogroup" aria-label="Quantidade de concursos" class="grid grid-cols-3 gap-2" id="sim-opcoes">
         <button type="button" role="radio" data-n="5"  class="sim-op min-h-[48px] rounded-xl border px-2 text-sm font-semibold transition-all duration-200">Últimos 5</button>
@@ -110,7 +110,7 @@
 
   <p id="aviso-status" class="sr-only" role="status" aria-live="polite"></p>
 
-<script src="engine.js"></script>
+<script src="data/lotes_demo.js"></script>
 <script>
 (() => {
   'use strict';
@@ -118,18 +118,17 @@
   /* ================= DADOS MOCKADOS ================= */
   const PARAMS = new URLSearchParams(location.search);
   const ALF = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
-  const CODIGO_LOTE = (PARAMS.get('lote') || 'Sena-2026-004').slice(0, 30);
-  const TOTAL = 64;
+  const DEMO = window.SENAMATCH_DEMO || { lotes: [], totalLotes: 0 };
+  const TOTAL = 5;   // jogos por lote, como no programa
   const PRECO_JOGO = 6;
   const PREMIOS = { 4: 1100, 5: 55000, 6: 5000000 };
   const FAIXAS = { 4: 'Quadra', 5: 'Quina', 6: 'Sena' };
 
   const CONCURSO_ATUAL = 2800;
-  const SORTEIO_ATUAL = [5, 12, 28, 34, 41, 55];
   const DATAS = ['26/09/2026','24/09/2026','22/09/2026','19/09/2026','17/09/2026','15/09/2026','12/09/2026',
                  '10/09/2026','08/09/2026','05/09/2026','03/09/2026','01/09/2026','29/08/2026'];
-  const JOGOS_DEMO = { 13: [5, 17, 28, 34, 49, 55], 41: [8, 12, 23, 34, 41, 55] };
-  const PLANTIOS = { 2799: 7, 2796: 52, 2794: 3, 2791: 29 };
+  // Concurso de demonstração -> índice do jogo que recebe 4 acertos plantados
+  const PLANTIOS = { 2800: 2, 2799: 1, 2796: 3, 2794: 0, 2791: 4 };
 
   /* ================= UTILITÁRIOS ================= */
   const $ = (id) => document.getElementById(id);
@@ -151,26 +150,28 @@
   }
 
   /* ================= LOTE E SORTEIOS ================= */
-  function gerarLote() {
-    const j = PARAMS.get('j') || '';   // jogos vindos do link do gestor
-    if (j.length === TOTAL * 6) {
+  function validos(grupos) {
+    return grupos.length === TOTAL && grupos.every((g) => g.length === 6 && new Set(g).size === 6 && g.every((n) => n >= 1 && n <= 60));
+  }
+  // Lote do link do gestor (?lote=N&j=...) ou, senão, do catálogo de demonstração (?lote=N); padrão: o primeiro
+  function carregarLote() {
+    const numero = Number(PARAMS.get('lote'));
+    const j = PARAMS.get('j') || '';
+    if (Number.isInteger(numero) && numero > 0 && j.length === TOTAL * 6) {
       const nums = [...j].map((c) => ALF.indexOf(c) + 1);
       const grupos = Array.from({ length: TOTAL }, (_, i) => nums.slice(i * 6, i * 6 + 6).sort((a, b) => a - b));
-      if (nums.every((n) => n >= 1 && n <= 60) && grupos.every((g) => new Set(g).size === 6)) return grupos;
+      if (validos(grupos)) return { numero, jogos: grupos };
     }
-    let semente = 0;
-    for (const c of CODIGO_LOTE) semente = (semente * 31 + c.charCodeAt(0)) >>> 0;
-    const rnd = mulberry32(semente);
-    return Array.from({ length: TOTAL }, (_, i) => {
-      const dezenas = new Set();
-      while (dezenas.size < 6) dezenas.add(Math.floor(rnd() * 60) + 1);
-      return JOGOS_DEMO[i] || [...dezenas].sort((a, b) => a - b);
-    });
+    const achado = DEMO.lotes.find((l) => l.numero === numero) || DEMO.lotes[0];
+    return achado ? { numero: achado.numero, jogos: achado.jogos.map((g) => [...g]) } : null;
   }
-  const jogos = gerarLote();
+  const lote = carregarLote();
+  if (!lote) { document.querySelector('main').textContent = 'Não foi possível carregar o lote de demonstração.'; return; }
+  const jogos = lote.jogos;
+  const CODIGO_LOTE = String(lote.numero);
+  $('lote-codigo').textContent = `Lote nº ${lote.numero.toLocaleString('pt-BR')}${DEMO.totalLotes ? ' de ' + DEMO.totalLotes.toLocaleString('pt-BR') : ''}`;
 
   function sorteioMock(conc) {
-    if (conc === CONCURSO_ATUAL) return SORTEIO_ATUAL;
     const rnd = mulberry32(conc * 7919);
     const alvo = PLANTIOS[conc];
     const s = new Set();
@@ -194,6 +195,7 @@
     return { numero, data, dezenas: sorteioMock(numero) };
   });
   const concursoPorNumero = (n) => HISTORICO.find((c) => c.numero === n);
+  const SORTEIO_ATUAL = HISTORICO[0].dezenas;
 
   function conferir(sorteio) {
     const sorteadas = new Set(sorteio);
@@ -332,10 +334,10 @@
 
   const textoTodos = () => jogos.map((d, i) => `Jogo ${pad(i + 1)}: ${formatar(d)}`).join('\n');
   function baixarTxt() {
-    const blob = new Blob([`Lote #${CODIGO_LOTE}\n\n${textoTodos()}\n`], { type: 'text/plain;charset=utf-8' });
+    const blob = new Blob([`Lote nº ${lote.numero.toLocaleString('pt-BR')}\n\n${textoTodos()}\n`], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url; a.download = `senamatch-${CODIGO_LOTE.toLowerCase()}.txt`;
+    a.href = url; a.download = `senamatch-lote-${CODIGO_LOTE}.txt`;
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
@@ -461,7 +463,6 @@
   });
 
   /* ================= INICIALIZAÇÃO ================= */
-  $('lote-codigo').textContent = `Lote #${CODIGO_LOTE}`;
   jogos.forEach((_, i) => pintarCartao(i));
   atualizarProgresso();
   marcarOpcao();

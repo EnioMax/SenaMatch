@@ -87,7 +87,7 @@
       <section id="aba-estoque" role="tabpanel" class="hidden space-y-4">
         <div class="flex flex-wrap items-center justify-between gap-3">
           <h1 class="text-lg font-extrabold">Estoque de lotes</h1>
-          <button type="button" id="btn-novo-lote" class="btn-p w-full sm:w-auto">+ Gerar novo lote de 64 jogos</button>
+          <button type="button" id="btn-novo-lote" class="btn-p w-full sm:w-auto">+ Separar novo lote (5 jogos)</button>
         </div>
         <div class="card overflow-x-auto p-0">
           <table class="w-full min-w-[700px] text-sm">
@@ -149,13 +149,14 @@
 
   <p id="toast" role="status" aria-live="polite" class="pointer-events-none fixed bottom-[calc(1rem+env(safe-area-inset-bottom))] left-1/2 z-50 -translate-x-1/2 rounded-xl border border-emerald-500/60 bg-emerald-950 px-4 py-2 text-sm font-semibold text-emerald-200 opacity-0 transition-opacity duration-200"></p>
 
-<script src="engine.js"></script>
+<script src="data/lotes_demo.js"></script>
 <script>
 (() => {
   'use strict';
 
   /* ================= CONFIG E UTILITÁRIOS ================= */
-  const PRECO = 300, TOTAL = 64, KEY = 'senamatch:admin:v2';
+  const PRECO = 9.9, TOTAL = 5, KEY = 'senamatch:admin:v3';
+  const DEMO = window.SENAMATCH_DEMO || { lotes: [], totalLotes: 0 };
   const FAIXAS = { 4: 'Quadra', 5: 'Quina', 6: 'Sena' };
   const NOMES = ['Ana Souza','Bruno Lima','Carla Mendes','Diego Rocha','Elaine Costa','Fábio Alves','Gisele Nunes','Heitor Dias','Iara Santos','João Pereira','Karina Melo','Lucas Freitas','Marta Oliveira','Nelson Barros','Olívia Ramos','Paulo Teixeira','Queila Moura','Rafael Cunha'];
   const $ = (id) => document.getElementById(id);
@@ -164,47 +165,20 @@
   const brl = (v) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const fmtZap = (z) => { const d = z.length > 11 ? z.slice(-11) : z; return `(${d.slice(0, 2)}) ${d.slice(2, d.length - 4)}-${d.slice(-4)}`; };
+  const rotulo = (cod) => 'nº ' + Number(cod).toLocaleString('pt-BR');
 
-  const cache = new Map();
-  function gerarLote(codigo) {
-    if (cache.has(codigo)) return cache.get(codigo);
-
-    const loteObj = st && st.lotes ? st.lotes.find((l) => l.codigo === codigo) : null;
-    if (loteObj && Array.isArray(loteObj.jogos) && loteObj.jogos.length === TOTAL) {
-      cache.set(codigo, loteObj.jogos);
-      return loteObj.jogos;
-    }
-
-    let jogos = [];
-    const engine = window.SenaEngine || (typeof SenaEngine !== 'undefined' ? SenaEngine : null);
-    if (engine && typeof engine.gerarLoteOtimizado === 'function') {
-      jogos = engine.gerarLoteOtimizado([], TOTAL);
-    } else {
-      jogos = Array.from({ length: TOTAL }, () => {
-        const s = new Set();
-        while (s.size < 6) s.add(Math.floor(Math.random() * 60) + 1);
-        return [...s].sort((a, b) => a - b);
-      });
-    }
-
-    if (loteObj) {
-      loteObj.jogos = jogos;
-      salvar();
-    }
-
-    cache.set(codigo, jogos);
-    return jogos;
-  }
+  // Jogos de um lote: vêm do catálogo gerado pelo núcleo do programa (tools/gerar_lotes_demo.py)
+  const catalogo = new Map(DEMO.lotes.map((l) => [String(l.numero), l.jogos]));
+  const gerarLote = (codigo) => catalogo.get(String(codigo)) || [];
 
   /* ================= ESTADO ================= */
-  const codigoLote = (n) => `SENA-2026-${String(n).padStart(3, '0')}`;
   function semear() {
     const lotes = [], clientes = [];
-    for (let i = 1; i <= 24; i++) {
-      const vendido = i <= 18;
-      lotes.push({ codigo: codigoLote(i), data: `${pad(i + 3)}/09/2026`, cliente: vendido ? i : null });
+    DEMO.lotes.slice(0, 24).forEach((l, k) => {
+      const i = k + 1, vendido = i <= 18;
+      lotes.push({ codigo: String(l.numero), data: `${pad(i + 3)}/09/2026`, cliente: vendido ? i : null });
       if (vendido) clientes.push({ id: i, nome: NOMES[i - 1], zap: '869' + String(90000000 + i * 311957), enviado: i < 16 });
-    }
+    });
     return { lotes, clientes };
   }
   let st = null;
@@ -233,7 +207,7 @@
       ta.remove(); return ok;
     }
   }
-  // O link leva os 64 jogos codificados (1 caractere por dezena), então abre em qualquer aparelho sem servidor
+  // O link leva os 5 jogos codificados (1 caractere por dezena), então abre em qualquer aparelho sem servidor
   const ALF = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
   const linkLote = (cod) => {
     const j = gerarLote(cod).flat().map((n) => ALF[n - 1]).join('');
@@ -246,9 +220,9 @@
       return;
     }
     const corpo = jogosDoLote.map((d, i) => `Jogo ${pad(i + 1)}: ${fmt(d)}`).join('\n');
-    const url = URL.createObjectURL(new Blob([`Lote #${cod}\n\n${corpo}\n`], { type: 'text/plain;charset=utf-8' }));
+    const url = URL.createObjectURL(new Blob([`Lote ${rotulo(cod)}\n\n${corpo}\n`], { type: 'text/plain;charset=utf-8' }));
     const a = document.createElement('a');
-    a.href = url; a.download = `senamatch-${cod.toLowerCase()}.txt`;
+    a.href = url; a.download = `senamatch-lote-${cod}.txt`;
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
@@ -286,7 +260,7 @@
     const ult = st.clientes.slice(-6).reverse();
     $('dash-vendas').innerHTML = ult.length ? ult.map((c) => {
       const l = lotePorCliente(c.id);
-      return `<tr class="border-t border-slate-800"><td class="td font-semibold">${esc(c.nome)}</td><td class="td">#${l ? l.codigo : '—'}</td><td class="td">${brl(PRECO)}</td><td class="td">${l ? l.data : '—'}</td><td class="td">${pillEnvio(c.enviado)}</td></tr>`;
+      return `<tr class="border-t border-slate-800"><td class="td font-semibold">${esc(c.nome)}</td><td class="td">${l ? rotulo(l.codigo) : '—'}</td><td class="td">${brl(PRECO)}</td><td class="td">${l ? l.data : '—'}</td><td class="td">${pillEnvio(c.enviado)}</td></tr>`;
     }).join('') : '<tr><td class="td text-slate-400" colspan="5">Nenhuma venda registrada. Cadastre um cliente na aba Clientes.</td></tr>';
   }
 
@@ -296,7 +270,7 @@
       const pill = c
         ? '<span class="pill border-emerald-500/40 bg-emerald-500/15 text-emerald-300">Atribuído</span>'
         : '<span class="pill border-amber-400/40 bg-amber-400/15 text-amber-300">Disponível</span>';
-      return `<tr class="border-t border-slate-800"><td class="td font-semibold">#${l.codigo}</td><td class="td">${l.data}</td><td class="td">${pill}</td>
+      return `<tr class="border-t border-slate-800"><td class="td font-semibold">${rotulo(l.codigo)}</td><td class="td">${l.data}</td><td class="td">${pill}</td>
         <td class="td ${c ? '' : 'text-slate-500'}">${c ? esc(c.nome) : '—'}</td>
         <td class="td"><div class="flex gap-2">
           <button type="button" class="btn-s" data-act="link" data-cod="${l.codigo}">Copiar link de acesso</button>
@@ -307,7 +281,7 @@
   function renderSelectLotes() {
     const livres = st.lotes.filter((l) => l.cliente === null);
     $('cli-lote').innerHTML = livres.length
-      ? livres.map((l) => `<option value="${l.codigo}">#${l.codigo}</option>`).join('')
+      ? livres.map((l) => `<option value="${l.codigo}">${rotulo(l.codigo)}</option>`).join('')
       : '<option value="">Nenhum lote disponível</option>';
   }
 
@@ -318,7 +292,7 @@
       const l = lotePorCliente(c.id);
       return `<li class="rounded-2xl border border-slate-800 bg-slate-950 p-4">
         <div class="flex items-start justify-between gap-2"><div><p class="font-semibold">${esc(c.nome)}</p>
-          <p class="text-sm text-slate-400">${fmtZap(c.zap)} · Lote #${l ? l.codigo : '—'}</p></div>${pillEnvio(c.enviado)}</div>
+          <p class="text-sm text-slate-400">${fmtZap(c.zap)} · Lote ${l ? rotulo(l.codigo) : '—'}</p></div>${pillEnvio(c.enviado)}</div>
         <button type="button" class="btn-p mt-3 w-full" data-act="zap" data-id="${c.id}">Enviar link pelo WhatsApp</button></li>`;
     }).join('') : `<li class="text-sm text-slate-400">${q ? 'Nenhum cliente encontrado para essa busca.' : 'Nenhum cliente cadastrado.'}</li>`;
   }
@@ -334,7 +308,7 @@
     if (act === 'txt') baixarTxt(cod);
     if (act === 'zap') {
       const c = clientePorId(Number(id)), l = lotePorCliente(c.id);
-      const msg = `Olá, ${c.nome.split(' ')[0]}! Seu lote ${l.codigo} do SenaMatch está pronto. Acesse: ${linkLote(l.codigo)}`;
+      const msg = `Olá, ${c.nome.split(' ')[0]}! Seu lote ${rotulo(l.codigo)} do SenaMatch está pronto. Acesse: ${linkLote(l.codigo)}`;
       const num = c.zap.length <= 11 ? '55' + c.zap : c.zap;
       c.enviado = true; salvar(); render();
       window.open(`https://wa.me/${num}?text=${encodeURIComponent(msg)}`, '_blank', 'noopener');
@@ -361,10 +335,17 @@
   /* ================= MODAL: NOVO LOTE ================= */
   let foco = null;
   const modal = $('modal');
-  const proximoCodigo = () => codigoLote(st.lotes.length + 1);
+  // Próximo lote do catálogo de demonstração que ainda não está no estoque
+  const proximoCodigo = () => {
+    const usados = new Set(st.lotes.map((l) => l.codigo));
+    const l = DEMO.lotes.find((x) => !usados.has(String(x.numero)));
+    return l ? String(l.numero) : null;
+  };
   function abrirModal() {
+    const cod = proximoCodigo();
+    if (!cod) { toast('Catálogo de demonstração esgotado'); return; }
     foco = document.activeElement;
-    $('modal-texto').textContent = `Vai ser criado o lote #${proximoCodigo()} com ${TOTAL} jogos de 6 dezenas, com status Disponível.`;
+    $('modal-texto').textContent = `Vai ser separado o lote ${rotulo(cod)} (${TOTAL} jogos de 6 dezenas, calculados pelo programa), com status Disponível.`;
     modal.classList.remove('hidden'); modal.classList.add('flex');
     $('modal-confirmar').focus();
   }
@@ -387,22 +368,13 @@
 
   $('modal-confirmar').addEventListener('click', () => {
     const cod = proximoCodigo(), d = new Date();
-    const engine = window.SenaEngine || (typeof SenaEngine !== 'undefined' ? SenaEngine : null);
-    const novosJogos = engine && typeof engine.gerarLoteOtimizado === 'function'
-      ? engine.gerarLoteOtimizado([], TOTAL)
-      : Array.from({ length: TOTAL }, () => {
-          const s = new Set();
-          while (s.size < 6) s.add(Math.floor(Math.random() * 60) + 1);
-          return [...s].sort((a, b) => a - b);
-        });
-
-    st.lotes.push({ 
-      codigo: cod, 
-      data: `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`, 
-      cliente: null,
-      jogos: novosJogos
+    if (!cod) { fecharModal(); return; }
+    st.lotes.push({
+      codigo: cod,
+      data: `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`,
+      cliente: null
     });
-    salvar(); render(); fecharModal(); toast(`Lote #${cod} gerado`);
+    salvar(); render(); fecharModal(); toast(`Lote ${rotulo(cod)} separado`);
   });
 
   /* ================= CENTRAL DE SORTEIOS ================= */
@@ -449,7 +421,7 @@
       </div>
       ${achados.length ? `<div class="card max-h-96 overflow-auto p-0"><table class="w-full min-w-[480px] text-sm">
         <thead class="sticky top-0 bg-slate-900"><tr><th class="th">Lote</th><th class="th">Cliente</th><th class="th">Jogo</th><th class="th">Faixa</th></tr></thead>
-        <tbody>${achados.map((a) => `<tr class="border-t border-slate-800"><td class="td">#${a.cod}</td><td class="td">${esc(a.cli ? a.cli.nome : '—')}</td><td class="td">#${a.jogo}</td><td class="td font-semibold text-amber-400">${FAIXAS[a.qtd]}</td></tr>`).join('')}</tbody></table></div>` : ''}
+        <tbody>${achados.map((a) => `<tr class="border-t border-slate-800"><td class="td">${rotulo(a.cod)}</td><td class="td">${esc(a.cli ? a.cli.nome : '—')}</td><td class="td">#${a.jogo}</td><td class="td font-semibold text-amber-400">${FAIXAS[a.qtd]}</td></tr>`).join('')}</tbody></table></div>` : ''}
       <p class="text-xs text-slate-500">Varredura feita nos lotes com status Atribuído. Lotes disponíveis não entram na conferência.</p>`;
   });
 
