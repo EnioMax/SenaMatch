@@ -38,7 +38,11 @@ Legenda: `[x]` feito · `[ ]` a fazer · **(cliente)** depende de decisão ou ap
 - [ ] Imagem de compartilhamento (Open Graph), favicon e `robots.txt`/`sitemap.xml`
 - [ ] Revisar acessibilidade (contraste, foco, leitor de tela) e desempenho (Lighthouse ≥ 90)
 - [ ] Proteger o painel administrativo: hoje não tem login e guarda dados no navegador. **Não publicar com dados reais antes disso** (ou tirar o link do ar)
-- [ ] Substituir os dados fictícios de concurso na área do cliente e no painel (hoje 2788–2800) pela API da Caixa
+- [x] Página do lote (`/meu-lote`) com resultados oficiais da Caixa, simulador (do lote e livre) e ofertas
+- [ ] Substituir os dados fictícios de concurso do painel administrativo pela API da Caixa
+- [ ] **(você)** Criar o secret `WHATSAPP_NUMERO` na Cloudflare (DDD + número, só dígitos) e refazer o deploy
+- [ ] **(você)** Registrar o domínio e criar conta no serviço de e-mail (Resend ou Brevo)
+- [ ] Confirmação por e-mail: token por lead (KV), e-mail de boas-vindas e liberação do lote em `/meu-lote?t=...`
 
 ## Fase 3 — Venda de verdade (backend)
 
@@ -48,7 +52,7 @@ Legenda: `[x]` feito · `[ ]` a fazer · **(cliente)** depende de decisão ou ap
 - [ ] Banco de dados: clientes, pedidos, lotes vendidos e jogos apostados (modelo na seção 5 das regras)
 - [ ] Checkout Pix e cartão, com webhook assinado e idempotente
 - [ ] Acesso por link mágico por e-mail (sem senha)
-- [ ] Migrar `cliente.html` para ler os lotes do cliente logado, no lugar do catálogo de demonstração
+- [ ] Migrar `meu-lote.html` para ler os lotes do cliente logado, no lugar do catálogo de demonstração
 - [ ] Entrega automática por e-mail e WhatsApp (API oficial)
 - [ ] Lote cortesia: alocar o lote ao lead e enviar (hoje o lead só vira cartão no Trello)
 
@@ -65,7 +69,7 @@ Legenda: `[x]` feito · `[ ]` a fazer · **(cliente)** depende de decisão ou ap
 
 1. Abrir a página inicial no celular e no computador: o texto e a oferta estão claros?
 2. Enviar o formulário com seus próprios dados: chegou a confirmação?
-3. Abrir a área do cliente (`/cliente.html`): os 5 jogos do lote estão corretos? Copiar um jogo, marcar "Já apostei" e tentar a conferência.
+3. Abrir a página do lote (`/meu-lote`): os 5 jogos do lote estão corretos? Copiar um jogo, marcar "Já apostei" e tentar a conferência.
 4. Abrir o painel (`/admin.html`): o estoque, os clientes e a central de sorteios fazem sentido?
 5. Os preços, os pacotes e o aviso de jogo responsável estão aprovados?
 6. Anotar o que mudar: textos, cores, ordem das seções, imagens.

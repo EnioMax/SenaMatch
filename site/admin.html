@@ -211,7 +211,7 @@
   const ALF = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
   const linkLote = (cod) => {
     const j = gerarLote(cod).flat().map((n) => ALF[n - 1]).join('');
-    return new URL('cliente.html?lote=' + encodeURIComponent(cod) + '&j=' + j, location.href).href;
+    return new URL('meu-lote.html?lote=' + encodeURIComponent(cod) + '&j=' + j, location.href).href;
   };
   function baixarTxt(cod) {
     const jogosDoLote = gerarLote(cod);

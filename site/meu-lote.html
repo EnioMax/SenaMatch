@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#020617">
-  <title>SenaMatch · Área do Cliente</title>
+  <title>SenaMatch · Meu lote</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;800&display=swap" rel="stylesheet">
@@ -29,13 +29,15 @@
         <a href="index.html" class="text-xl font-extrabold text-amber-400 hover:opacity-80 transition-opacity focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-400">SenaMatch</a>
         <p class="text-sm text-slate-400" id="lote-codigo">Lote</p>
       </div>
-      <nav class="mt-2 grid grid-cols-3" role="tablist" aria-label="Seções da área do cliente">
+      <nav class="mt-2 grid grid-cols-4" role="tablist" aria-label="Seções do seu lote">
         <button type="button" role="tab" id="tab-jogos" data-aba="jogos" aria-controls="aba-jogos"
-          class="tab min-h-[48px] border-b-2 px-1 text-sm font-semibold transition-all duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-400">Meus jogos</button>
+          class="tab min-h-[48px] border-b-2 px-1 text-sm font-semibold transition-all duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-400">Jogos</button>
         <button type="button" role="tab" id="tab-conferencia" data-aba="conferencia" aria-controls="aba-conferencia"
           class="tab min-h-[48px] border-b-2 px-1 text-sm font-semibold transition-all duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-400">Conferência</button>
         <button type="button" role="tab" id="tab-simulador" data-aba="simulador" aria-controls="aba-simulador"
           class="tab min-h-[48px] border-b-2 px-1 text-sm font-semibold transition-all duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-400">Simulador</button>
+        <button type="button" role="tab" id="tab-ofertas" data-aba="ofertas" aria-controls="aba-ofertas"
+          class="tab min-h-[48px] border-b-2 px-1 text-sm font-semibold transition-all duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-400">Ofertas</button>
       </nav>
     </div>
   </header>
@@ -44,6 +46,7 @@
 
     <!-- ABA 1: MEUS JOGOS -->
     <section id="aba-jogos" role="tabpanel" aria-labelledby="tab-jogos" class="hidden space-y-4">
+      <p id="aviso-demo" class="hidden rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm text-slate-300">Você está vendo um lote de demonstração, com jogos de exemplo.</p>
       <div class="space-y-3">
         <div class="flex items-baseline justify-between gap-3">
           <h1 class="text-lg font-extrabold">Meus jogos</h1>
@@ -70,10 +73,10 @@
 
       <div class="rounded-2xl border border-amber-400/40 bg-slate-900 p-4">
         <p class="text-sm text-slate-400">Último sorteio oficial</p>
-        <p class="text-xl font-extrabold text-amber-400" id="ultimo-titulo"></p>
+        <p class="text-xl font-extrabold text-amber-400" id="ultimo-titulo">Carregando resultados…</p>
         <div class="my-4 flex flex-wrap gap-2" id="ultimo-bolas"></div>
-        <button id="btn-conferir" type="button"
-          class="min-h-[48px] w-full rounded-xl bg-emerald-600 px-4 text-sm font-semibold text-white transition-all duration-200 hover:bg-emerald-500 active:scale-[.98] sm:w-auto focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-400">Conferir meu lote</button>
+        <button id="btn-conferir" type="button" disabled
+          class="disabled:opacity-50 min-h-[48px] w-full rounded-xl bg-emerald-600 px-4 text-sm font-semibold text-white transition-all duration-200 hover:bg-emerald-500 active:scale-[.98] sm:w-auto focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-400">Conferir meu lote</button>
         <div id="resultado-conferencia" class="mt-4 hidden space-y-3" aria-live="polite"></div>
       </div>
 
@@ -81,30 +84,83 @@
         <h3 class="mb-3 text-base font-semibold">Buscar concurso anterior</h3>
         <form id="form-busca" class="flex gap-2">
           <label for="busca-numero" class="sr-only">Número do concurso</label>
-          <input id="busca-numero" type="number" inputmode="numeric" placeholder="Ex: 2795"
+          <input id="busca-numero" type="number" inputmode="numeric" placeholder="Número do concurso"
             class="min-h-[48px] w-full rounded-xl border border-slate-600 bg-slate-950 px-3 text-base focus:border-emerald-500 focus:outline-none">
           <button type="submit"
             class="min-h-[48px] rounded-xl border border-emerald-600 px-5 text-sm font-semibold text-emerald-400 transition-all duration-200 hover:bg-emerald-600 hover:text-white active:scale-[.98]">Buscar</button>
         </form>
         <div id="resultado-busca" class="mt-4" aria-live="polite"></div>
       </div>
-      <p class="text-xs text-slate-500">Protótipo com sorteios de demonstração (concursos 2788 a 2800). Não são resultados oficiais.</p>
+      <p id="aviso-resultados" class="text-xs text-slate-500">Resultados oficiais da Mega-Sena, fonte: Caixa Econômica Federal.</p>
     </section>
 
-    <!-- ABA 3: SIMULADOR ESTRATÉGICO -->
-    <section id="aba-simulador" role="tabpanel" aria-labelledby="tab-simulador" class="hidden space-y-5">
-      <h2 class="text-lg font-extrabold">Simulador estratégico</h2>
-      <p class="text-sm text-slate-300">Veja como o seu lote atual de 5 jogos teria se saído nos concursos recentes. Simulação com sorteios de demonstração: resultados passados não indicam resultados futuros.</p>
+    <!-- ABA 3: SIMULADOR -->
+    <section id="aba-simulador" role="tabpanel" aria-labelledby="tab-simulador" class="hidden space-y-6">
+      <h2 class="text-lg font-extrabold">Simulador</h2>
 
-      <div role="radiogroup" aria-label="Quantidade de concursos" class="grid grid-cols-3 gap-2" id="sim-opcoes">
-        <button type="button" role="radio" data-n="5"  class="sim-op min-h-[48px] rounded-xl border px-2 text-sm font-semibold transition-all duration-200">Últimos 5</button>
-        <button type="button" role="radio" data-n="10" class="sim-op min-h-[48px] rounded-xl border px-2 text-sm font-semibold transition-all duration-200">Últimos 10</button>
-        <button type="button" role="radio" data-n="13" class="sim-op min-h-[48px] rounded-xl border px-2 text-sm font-semibold transition-all duration-200">Últimos 13</button>
+      <div class="space-y-4 rounded-2xl border border-slate-800 bg-slate-900 p-4">
+        <h3 class="text-base font-semibold">Meu lote nos últimos concursos</h3>
+        <p class="text-sm text-slate-300">Veja como os seus 5 jogos teriam se saído nos sorteios recentes.</p>
+        <div role="radiogroup" aria-label="Quantidade de concursos" class="grid grid-cols-3 gap-2" id="sim-opcoes">
+          <button type="button" role="radio" data-n="5"  class="sim-op min-h-[48px] rounded-xl border px-2 text-sm font-semibold transition-all duration-200">Últimos 5</button>
+          <button type="button" role="radio" data-n="10" class="sim-op min-h-[48px] rounded-xl border px-2 text-sm font-semibold transition-all duration-200">Últimos 10</button>
+          <button type="button" role="radio" data-n="13" class="sim-op min-h-[48px] rounded-xl border px-2 text-sm font-semibold transition-all duration-200">Últimos 13</button>
+        </div>
+        <button id="btn-simular" type="button" disabled
+          class="min-h-[48px] w-full rounded-xl bg-emerald-600 px-4 text-sm font-semibold text-white transition-all duration-200 hover:bg-emerald-500 active:scale-[.98] disabled:opacity-50 sm:w-auto focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-400">Simular meu lote</button>
+        <div id="resultado-simulacao" class="hidden space-y-4" aria-live="polite"></div>
       </div>
-      <button id="btn-simular" type="button"
-        class="min-h-[48px] w-full rounded-xl bg-emerald-600 px-4 text-sm font-semibold text-white transition-all duration-200 hover:bg-emerald-500 active:scale-[.98] sm:w-auto focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-400">Simular desempenho</button>
 
-      <div id="resultado-simulacao" class="hidden space-y-4" aria-live="polite"></div>
+      <div class="space-y-4 rounded-2xl border border-slate-800 bg-slate-900 p-4">
+        <h3 class="text-base font-semibold">Simulador livre</h3>
+        <p class="text-sm text-slate-300">Escolha um concurso e marque de 6 a 15 dezenas para ver quantos acertos você teria feito.</p>
+        <div>
+          <label for="livre-concurso" class="mb-1 block text-sm text-slate-400">Concurso</label>
+          <select id="livre-concurso" class="min-h-[48px] w-full rounded-xl border border-slate-600 bg-slate-950 px-3 text-base focus:border-emerald-500 focus:outline-none"></select>
+        </div>
+        <div>
+          <div class="mb-2 flex items-baseline justify-between">
+            <p class="text-sm text-slate-400" id="livre-rotulo">Dezenas</p>
+            <p class="text-sm text-slate-300" id="livre-contagem" aria-live="polite">0 marcadas</p>
+          </div>
+          <div id="livre-grade" class="grid grid-cols-6 gap-1.5 sm:grid-cols-10" role="group" aria-labelledby="livre-rotulo"></div>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <button id="livre-limpar" type="button" class="min-h-[48px] rounded-xl border border-slate-600 px-3 text-sm font-semibold hover:bg-slate-800 active:scale-[.98]">Limpar</button>
+          <button id="livre-simular" type="button" disabled class="min-h-[48px] rounded-xl bg-emerald-600 px-3 text-sm font-semibold text-white hover:bg-emerald-500 active:scale-[.98] disabled:opacity-50">Simular</button>
+        </div>
+        <div id="livre-resultado" class="hidden" aria-live="polite"></div>
+      </div>
+      <p class="text-xs text-slate-500">Resultados passados não indicam resultados futuros. Prêmios conforme o rateio oficial de cada concurso. O SenaMatch não faz apostas e não garante prêmios.</p>
+    </section>
+
+    <!-- ABA 4: OFERTAS -->
+    <section id="aba-ofertas" role="tabpanel" aria-labelledby="tab-ofertas" class="hidden space-y-4">
+      <h2 class="text-lg font-extrabold">Mais lotes para você</h2>
+      <p class="text-sm text-slate-300">Cada lote tem 5 jogos gerados pela lógica exclusiva do SenaMatch, sem repetir jogos entre lotes. As apostas são feitas por você na Caixa (R$ 6,00 por jogo, não incluso).</p>
+      <div class="grid gap-3 md:grid-cols-3">
+        <div class="rounded-2xl border border-slate-800 bg-slate-900 p-4">
+          <h3 class="text-lg font-semibold">Avulso</h3>
+          <p class="mt-2 text-3xl font-extrabold">R$ 9,90</p>
+          <p class="mt-1 text-sm text-slate-400">1 lote · 5 jogos</p>
+          <a href="/go/whatsapp?t=avulso" target="_blank" rel="noopener noreferrer" class="mt-4 flex min-h-[48px] items-center justify-center rounded-xl border border-emerald-600 text-sm font-semibold text-emerald-400 hover:bg-emerald-600 hover:text-white">Quero este</a>
+        </div>
+        <div class="rounded-2xl border-2 border-amber-400 bg-slate-900 p-4">
+          <p class="mb-1 text-xs font-bold uppercase tracking-wide text-amber-400">Mais escolhido</p>
+          <h3 class="text-lg font-semibold">Trio</h3>
+          <p class="mt-2 text-3xl font-extrabold">R$ 24,90</p>
+          <p class="mt-1 text-sm text-slate-400">3 lotes · 15 jogos · R$ 8,30 por lote</p>
+          <a href="/go/whatsapp?t=trio" target="_blank" rel="noopener noreferrer" class="mt-4 flex min-h-[48px] items-center justify-center rounded-xl bg-emerald-600 text-sm font-semibold text-white hover:bg-emerald-500">Quero este</a>
+        </div>
+        <div class="rounded-2xl border border-slate-800 bg-slate-900 p-4">
+          <h3 class="text-lg font-semibold">Turbo</h3>
+          <p class="mt-2 text-3xl font-extrabold">R$ 69,90</p>
+          <p class="mt-1 text-sm text-slate-400">10 lotes · 50 jogos · R$ 6,99 por lote</p>
+          <a href="/go/whatsapp?t=turbo" target="_blank" rel="noopener noreferrer" class="mt-4 flex min-h-[48px] items-center justify-center rounded-xl border border-emerald-600 text-sm font-semibold text-emerald-400 hover:bg-emerald-600 hover:text-white">Quero este</a>
+        </div>
+      </div>
+      <a href="/go/whatsapp?t=duvida" target="_blank" rel="noopener noreferrer" class="flex min-h-[48px] items-center justify-center rounded-xl border border-slate-600 text-sm font-semibold hover:bg-slate-800">Tirar dúvidas no WhatsApp</a>
+      <p class="text-xs text-slate-500">Jogue com responsabilidade. Proibido para menores de 18 anos. A Mega-Sena é uma loteria da Caixa; o SenaMatch não é afiliado à Caixa.</p>
     </section>
   </main>
 
@@ -121,14 +177,8 @@
   const DEMO = window.SENAMATCH_DEMO || { lotes: [], totalLotes: 0 };
   const TOTAL = 5;   // jogos por lote, como no programa
   const PRECO_JOGO = 6;
-  const PREMIOS = { 4: 1100, 5: 55000, 6: 5000000 };
   const FAIXAS = { 4: 'Quadra', 5: 'Quina', 6: 'Sena' };
-
-  const CONCURSO_ATUAL = 2800;
-  const DATAS = ['26/09/2026','24/09/2026','22/09/2026','19/09/2026','17/09/2026','15/09/2026','12/09/2026',
-                 '10/09/2026','08/09/2026','05/09/2026','03/09/2026','01/09/2026','29/08/2026'];
-  // Concurso de demonstração -> índice do jogo que recebe 4 acertos plantados
-  const PLANTIOS = { 2800: 2, 2799: 1, 2796: 3, 2794: 0, 2791: 4 };
+  const QTD_SORTEIOS = 13;
 
   /* ================= UTILITÁRIOS ================= */
   const $ = (id) => document.getElementById(id);
@@ -139,15 +189,6 @@
   const listaPt = (xs) => xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join(', ')} e ${xs[xs.length - 1]}`;
   const guardar = (k, v) => { try { localStorage.setItem(k, v); } catch { /* ignora */ } };
   const ler = (k) => { try { return localStorage.getItem(k); } catch { return null; } };
-
-  function mulberry32(a) {
-    return () => {
-      a |= 0; a = (a + 0x6D2B79F5) | 0;
-      let t = Math.imul(a ^ (a >>> 15), 1 | a);
-      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-    };
-  }
 
   /* ================= LOTE E SORTEIOS ================= */
   function validos(grupos) {
@@ -168,34 +209,11 @@
   const lote = carregarLote();
   if (!lote) { document.querySelector('main').textContent = 'Não foi possível carregar o lote de demonstração.'; return; }
   const jogos = lote.jogos;
+  if (!PARAMS.get('j')) $('aviso-demo').classList.remove('hidden');
   const CODIGO_LOTE = String(lote.numero);
   $('lote-codigo').textContent = `Lote nº ${lote.numero.toLocaleString('pt-BR')}${DEMO.totalLotes ? ' de ' + DEMO.totalLotes.toLocaleString('pt-BR') : ''}`;
 
-  function sorteioMock(conc) {
-    const rnd = mulberry32(conc * 7919);
-    const alvo = PLANTIOS[conc];
-    const s = new Set();
-    if (alvo !== undefined) {
-      const base = [...jogos[alvo]];
-      for (let i = base.length - 1; i > 0; i--) {
-        const j = Math.floor(rnd() * (i + 1));
-        [base[i], base[j]] = [base[j], base[i]];
-      }
-      base.slice(0, 4).forEach((n) => s.add(n));
-    }
-    while (s.size < 6) {
-      const n = Math.floor(rnd() * 60) + 1;
-      if (alvo !== undefined && jogos[alvo].includes(n)) continue;
-      s.add(n);
-    }
-    return [...s].sort((a, b) => a - b);
-  }
-  const HISTORICO = DATAS.map((data, k) => {
-    const numero = CONCURSO_ATUAL - k;
-    return { numero, data, dezenas: sorteioMock(numero) };
-  });
-  const concursoPorNumero = (n) => HISTORICO.find((c) => c.numero === n);
-  const SORTEIO_ATUAL = HISTORICO[0].dezenas;
+  let HISTORICO = [];
 
   function conferir(sorteio) {
     const sorteadas = new Set(sorteio);
@@ -217,7 +235,7 @@
   }
 
   /* ================= ABAS ================= */
-  const ABAS = ['jogos', 'conferencia', 'simulador'];
+  const ABAS = ['jogos', 'conferencia', 'simulador', 'ofertas'];
   const TAB_ON = 'border-amber-400 text-amber-400';
   const TAB_OFF = 'border-transparent text-slate-400 hover:text-slate-200';
 
@@ -361,9 +379,6 @@
   const bolaSorteio = (n) =>
     `<span class="flex h-11 w-11 items-center justify-center rounded-full bg-amber-400 text-base font-extrabold text-slate-900 sm:h-12 sm:w-12">${pad(n)}</span>`;
 
-  $('ultimo-titulo').textContent = `Concurso ${CONCURSO_ATUAL} · ${HISTORICO[0].data}`;
-  $('ultimo-bolas').innerHTML = SORTEIO_ATUAL.map(bolaSorteio).join('');
-
   function cartaoPremiado(p) {
     return `<div class="rounded-xl border border-amber-400/50 bg-slate-950 p-3">
       <p class="mb-2 text-sm font-semibold">Jogo #${p.i + 1} · <span class="text-amber-400">${FAIXAS[p.qtd]}</span></p>
@@ -373,7 +388,7 @@
   }
 
   $('btn-conferir').addEventListener('click', () => {
-    const premiados = conferir(SORTEIO_ATUAL);
+    const premiados = conferir(HISTORICO[0].dezenas);
     const anteriores = [...destaques.keys()];
     destaques.clear();
     premiados.forEach((p) => destaques.set(p.i, p));
@@ -393,20 +408,28 @@
     });
   });
 
-  $('form-busca').addEventListener('submit', (e) => {
+  // Concursos fora dos já carregados são buscados um a um na Caixa, via proxy
+  async function buscarConcurso(n) {
+    const local = HISTORICO.find((c) => c.numero === n);
+    if (local) return local;
+    const r = await fetch(`/api/sorteios?concurso=${n}`);
+    if (!r.ok) return null;
+    return (await r.json()).sorteios?.[0] ?? null;
+  }
+
+  $('form-busca').addEventListener('submit', async (e) => {
     e.preventDefault();
     const n = Number($('busca-numero').value);
-    const c = concursoPorNumero(n);
     const out = $('resultado-busca');
-    if (!c) {
-      out.innerHTML = `<p class="text-sm text-amber-300">Concurso não encontrado. No protótipo, use de ${HISTORICO[HISTORICO.length - 1].numero} a ${CONCURSO_ATUAL}.</p>`;
-      return;
-    }
-    const resumo = resumoConferencia(conferir(c.dezenas));
+    if (!Number.isInteger(n) || n < 1) { out.innerHTML = '<p class="text-sm text-amber-300">Informe o número do concurso.</p>'; return; }
+    out.innerHTML = '<p class="text-sm text-slate-400">Buscando…</p>';
+    let c = null;
+    try { c = await buscarConcurso(n); } catch { /* trata abaixo */ }
+    if (!c) { out.innerHTML = '<p class="text-sm text-amber-300">Concurso não encontrado.</p>'; return; }
     out.innerHTML = `
       <p class="mb-3 text-sm text-slate-400">Concurso ${c.numero} · ${c.data}</p>
       <div class="mb-3 flex flex-wrap gap-2">${c.dezenas.map(bolaSorteio).join('')}</div>
-      <p class="text-sm text-slate-300">Seu lote neste concurso: ${resumo}</p>`;
+      <p class="text-sm text-slate-300">Seu lote neste concurso: ${resumoConferencia(conferir(c.dezenas))}</p>`;
   });
 
   /* ================= ABA 3: SIMULADOR ================= */
@@ -426,15 +449,15 @@
   });
 
   const metrica = (rotulo, valor, cor = 'text-slate-100') =>
-    `<div class="rounded-2xl border border-slate-800 bg-slate-900 p-4">
+    `<div class="rounded-2xl border border-slate-800 bg-slate-950 p-4">
        <p class="text-sm text-slate-400">${rotulo}</p><p class="mt-1 text-xl font-extrabold ${cor}">${valor}</p></div>`;
 
   $('btn-simular').addEventListener('click', () => {
     const conc = HISTORICO.slice(0, simN);
-    const cont = { 4: 0, 5: 0, 6: 0 };
-    conc.forEach((c) => conferir(c.dezenas).forEach((p) => { cont[p.qtd]++; }));
+    const cont = { 4: 0, 5: 0, 6: 0 }, valor = { 4: 0, 5: 0, 6: 0 };
+    conc.forEach((c) => conferir(c.dezenas).forEach((p) => { cont[p.qtd]++; valor[p.qtd] += c.premios[p.qtd] || 0; }));
     const investido = conc.length * TOTAL * PRECO_JOGO;
-    const premios = [4, 5, 6].reduce((s, q) => s + cont[q] * PREMIOS[q], 0);
+    const premios = valor[4] + valor[5] + valor[6];
     const saldo = premios - investido, roi = (saldo / investido) * 100;
     const cor = saldo >= 0 ? 'text-emerald-400' : 'text-red-400';
 
@@ -444,30 +467,113 @@
       <p class="text-sm text-slate-400">Concursos ${conc[conc.length - 1].numero} a ${conc[0].numero} · ${conc.length} concursos × ${TOTAL} jogos × ${brl(PRECO_JOGO)}</p>
       <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
         ${metrica('Capital investido', brl(investido))}
-        ${metrica('Prêmios resgatados', brl(premios), 'text-amber-400')}
+        ${metrica('Prêmios', brl(premios), 'text-amber-400')}
         ${metrica('Saldo líquido', brl(saldo), cor)}
-        ${metrica('ROI', pct(roi), cor)}
+        ${metrica('Retorno', pct(roi), cor)}
       </div>
-      <div class="overflow-x-auto rounded-2xl border border-slate-800 bg-slate-900">
+      <div class="overflow-x-auto rounded-2xl border border-slate-800 bg-slate-950">
         <table class="w-full min-w-[320px] text-sm">
           <thead class="text-left text-slate-400"><tr>
             <th class="px-4 py-3 font-semibold">Faixa</th><th class="px-4 py-3 text-right font-semibold">Acertos</th><th class="px-4 py-3 text-right font-semibold">Prêmios</th></tr></thead>
           <tbody>${[4, 5, 6].map((q) => `
             <tr class="border-t border-slate-800"><td class="px-4 py-3">${FAIXAS[q]}s</td>
               <td class="px-4 py-3 text-right font-semibold">${cont[q]}</td>
-              <td class="px-4 py-3 text-right">${brl(cont[q] * PREMIOS[q])}</td></tr>`).join('')}
+              <td class="px-4 py-3 text-right">${brl(valor[q])}</td></tr>`).join('')}
           </tbody>
         </table>
-      </div>
-      <p class="text-xs text-slate-500">Simulação com dados fictícios e prêmios de referência (Quadra ${brl(PREMIOS[4])}, Quina ${brl(PREMIOS[5])}, Sena ${brl(PREMIOS[6])}). Resultados passados não garantem resultados futuros.</p>`;
+      </div>`;
   });
+
+  /* Simulador livre: concurso à escolha e de 6 a 15 dezenas */
+  const LIVRE_MIN = 6, LIVRE_MAX = 15;
+  const livre = new Set();
+  const comb = (n, k) => {
+    if (k < 0 || k > n) return 0;
+    let r = 1;
+    for (let i = 1; i <= k; i++) r = (r * (n - k + i)) / i;
+    return Math.round(r);
+  };
+  const BTN_LIVRE_OFF = 'bg-slate-800 text-slate-200 hover:bg-slate-700';
+  const BTN_LIVRE_ON = 'bg-emerald-500 text-white';
+  $('livre-grade').innerHTML = Array.from({ length: 60 }, (_, i) => i + 1).map((n) =>
+    `<button type="button" data-d="${n}" aria-pressed="false" class="flex aspect-square min-h-[40px] items-center justify-center rounded-full text-sm font-bold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-400 ${BTN_LIVRE_OFF}">${pad(n)}</button>`).join('');
+
+  function atualizarLivre() {
+    document.querySelectorAll('#livre-grade [data-d]').forEach((b) => {
+      const on = livre.has(Number(b.dataset.d));
+      b.setAttribute('aria-pressed', String(on));
+      b.className = b.className.replace(BTN_LIVRE_OFF, '').replace(BTN_LIVRE_ON, '').trim() + ' ' + (on ? BTN_LIVRE_ON : BTN_LIVRE_OFF);
+    });
+    $('livre-contagem').textContent = `${livre.size} ${livre.size === 1 ? 'marcada' : 'marcadas'} (de ${LIVRE_MIN} a ${LIVRE_MAX})`;
+    $('livre-simular').disabled = HISTORICO.length === 0 || livre.size < LIVRE_MIN;
+  }
+  $('livre-grade').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-d]');
+    if (!b) return;
+    const n = Number(b.dataset.d);
+    if (livre.has(n)) livre.delete(n);
+    else if (livre.size < LIVRE_MAX) livre.add(n);
+    atualizarLivre();
+  });
+  $('livre-limpar').addEventListener('click', () => { livre.clear(); $('livre-resultado').classList.add('hidden'); atualizarLivre(); });
+
+  $('livre-simular').addEventListener('click', () => {
+    const c = HISTORICO.find((x) => x.numero === Number($('livre-concurso').value));
+    if (!c) return;
+    const k = livre.size;
+    const h = [...livre].filter((n) => c.dezenas.includes(n)).length;
+    // Com k dezenas, cada combinação de 6 vira um jogo; conta quantos fazem sena, quina e quadra
+    const cont = { 6: comb(h, 6) * comb(k - h, 0), 5: comb(h, 5) * comb(k - h, 1), 4: comb(h, 4) * comb(k - h, 2) };
+    const jogosFeitos = comb(k, 6), custo = jogosFeitos * PRECO_JOGO;
+    const premio = [4, 5, 6].reduce((t, q) => t + cont[q] * (c.premios[q] || 0), 0);
+    const saldo = premio - custo, cor = saldo >= 0 ? 'text-emerald-400' : 'text-red-400';
+    const box = $('livre-resultado');
+    box.classList.remove('hidden');
+    box.innerHTML = `
+      <p class="mb-2 text-sm text-slate-400">Concurso ${c.numero} · ${c.data}</p>
+      <div class="mb-3 flex flex-wrap gap-2">${c.dezenas.map((n) =>
+        `<span class="flex h-10 w-10 items-center justify-center rounded-full text-sm font-extrabold ${livre.has(n) ? BOLA_HIT : 'bg-slate-700 text-slate-300'}">${pad(n)}</span>`).join('')}</div>
+      <p class="mb-3 text-sm font-semibold text-slate-200">Você acertou ${h} de ${k} dezenas marcadas.</p>
+      <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        ${metrica('Jogos formados', `${jogosFeitos.toLocaleString('pt-BR')}`)}
+        ${metrica('Custo', brl(custo))}
+        ${metrica('Prêmios', brl(premio), 'text-amber-400')}
+        ${metrica('Saldo', brl(saldo), cor)}
+      </div>
+      <p class="mt-3 text-sm text-slate-300">${[6, 5, 4].map((q) => `${cont[q]} ${FAIXAS[q].toLowerCase()}${cont[q] === 1 ? '' : 's'}`).join(' · ')}</p>`;
+  });
+
+  /* ================= RESULTADOS REAIS ================= */
+  async function carregarSorteios() {
+    const aviso = $('aviso-resultados');
+    try {
+      const r = await fetch(`/api/sorteios?n=${QTD_SORTEIOS}`);
+      if (!r.ok) throw new Error(String(r.status));
+      HISTORICO = (await r.json()).sorteios;
+      if (!HISTORICO?.length) throw new Error('vazio');
+    } catch {
+      $('ultimo-titulo').textContent = 'Resultados indisponíveis no momento';
+      aviso.textContent = 'Não foi possível buscar os resultados oficiais agora. Tente novamente em alguns minutos.';
+      aviso.className = 'text-sm text-amber-300';
+      return;
+    }
+    const atual = HISTORICO[0];
+    $('ultimo-titulo').textContent = `Concurso ${atual.numero} · ${atual.data}`;
+    $('ultimo-bolas').innerHTML = atual.dezenas.map(bolaSorteio).join('');
+    $('btn-conferir').disabled = false;
+    $('btn-simular').disabled = false;
+    $('livre-concurso').innerHTML = HISTORICO.map((c) => `<option value="${c.numero}">Concurso ${c.numero} · ${c.data}</option>`).join('');
+    atualizarLivre();
+  }
 
   /* ================= INICIALIZAÇÃO ================= */
   jogos.forEach((_, i) => pintarCartao(i));
   atualizarProgresso();
   marcarOpcao();
+  atualizarLivre();
   const abaSalva = ler('senamatch:aba');
   irParaAba(ABAS.includes(abaSalva) ? abaSalva : 'jogos');
+  carregarSorteios();
 })();
 </script>
 </body>

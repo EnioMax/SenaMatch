@@ -5,7 +5,7 @@ O repositório tem duas partes: o programa que gera os jogos e o site que vende 
 | Pasta | O que é | Tecnologia | Como rodar |
 |---|---|---|---|
 | [`streamlit/`](streamlit) | **Programa**: gerador e conferidor de jogos (núcleo de cálculo, integração com a Caixa, interface) | Python, NumPy, Streamlit | `cd streamlit && SENAMATCH_SECRET=... streamlit run app.py` |
-| [`site/`](site) | **Site**: landing de captação, área do cliente e painel do gestor (protótipo) | HTML, JS, Tailwind (CDN) | `npx wrangler pages dev` (com a função de leads) ou `python3 -m http.server -d site` (só páginas) |
+| [`site/`](site) | **Site**: landing de captação, página do lote e painel do gestor (protótipo) | HTML, JS, Tailwind (CDN) | `npx wrangler pages dev` (com a função de leads) ou `python3 -m http.server -d site` (só páginas) |
 | [`functions/`](functions) | **Função de leads** (`POST /api/leads`): grava o lead como cartão no Trello | Cloudflare Pages Functions | `npm test` |
 | [`tools/`](tools) | Gerador dos lotes de demonstração do site | Python (usa `streamlit/nucleo.py`) | `streamlit/.venv/bin/python tools/gerar_lotes_demo.py` |
 | [`docs/`](docs) | Regras de negócio e checklist de desenvolvimento | Markdown | |
@@ -18,15 +18,16 @@ O repositório tem duas partes: o programa que gera os jogos e o site que vende 
 
 ## Site (`site/`)
 
-- O lote é de **5 jogos**, como no programa (7.600.320 lotes). A área do cliente e o painel leem [`site/data/lotes_demo.js`](site/data/lotes_demo.js), gerado pelo núcleo com um **segredo fictício**: são jogos de demonstração, não os da venda. Regere com `tools/gerar_lotes_demo.py`.
+- O lote é de **5 jogos**, como no programa (7.600.320 lotes). A página do lote (`/meu-lote`) e o painel leem [`site/data/lotes_demo.js`](site/data/lotes_demo.js), gerado pelo núcleo com um **segredo fictício**: são jogos de demonstração, não os da venda. Regere com `tools/gerar_lotes_demo.py`.
 - O painel do gestor guarda dados no `localStorage` do navegador, sem autenticação: não use com dados reais.
-- Concursos e resultados da área do cliente e do painel são fictícios.
+- Os resultados da página do lote são **oficiais**, vindos da API da Caixa por `/api/sorteios` (com cache de 10 min). O painel ainda usa concursos fictícios.
 
 ### Leads no Trello
 
 O formulário da landing envia para `/api/leads` ([`functions/api/leads.js`](functions/api/leads.js)). Configure como secrets da Cloudflare Pages (ou em `.dev.vars` localmente, a partir de [`.dev.vars.example`](.dev.vars.example)):
 
 - `TRELLO_KEY`, `TRELLO_TOKEN`, `TRELLO_LIST_ID` (obrigatórios) e `ALLOWED_ORIGIN` (opcional).
+- `WHATSAPP_NUMERO` (DDD + número, só dígitos): usado por `/go/whatsapp` ([`functions/go/whatsapp.js`](functions/go/whatsapp.js)) para os botões de WhatsApp, sem expor o número no repositório.
 - Nunca coloque chave ou token no HTML nem no repositório.
 - Publicação: Cloudflare Pages com diretório de saída `site` (ver [`wrangler.toml`](wrangler.toml)).
 
