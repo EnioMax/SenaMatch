@@ -17,7 +17,7 @@ Legenda: `[x]` feito · `[ ]` a fazer · **(cliente)** depende de decisão ou ap
 2. [ ] **(você)** Gerar a **API Key** e o **Token** em <https://trello.com/power-ups/admin>. O token precisa de acesso de leitura e escrita ao quadro. Não cole a chave nem o token no chat nem no código.
 3. [ ] **(você)** Descobrir o **ID da lista**: abra `https://trello.com/b/<id-do-quadro>.json`, ou adicione `.json` ao fim do endereço do quadro, e procure o `id` da lista.
 4. [ ] **(você)** Publicar na Cloudflare Pages: conectar o repositório `EnioMax/SenaMatch`, branch `separar-site`, **diretório de saída `site`**, sem comando de build.
-5. [ ] **(você)** Em *Settings → Variables and Secrets* do projeto, criar os secrets `TRELLO_KEY`, `TRELLO_TOKEN`, `TRELLO_LIST_ID` e, depois que o endereço final existir, `ALLOWED_ORIGIN` (ex.: `https://senamatch.pages.dev`).
+5. [ ] **(você)** Em *Settings → Variables and Secrets* do projeto, configurar `TRELLO_KEY`, `TRELLO_TOKEN`, `TRELLO_LIST_ID` e `ALLOWED_ORIGIN` como `https://senamatch.pages.dev,https://senamatch.com.br`. Publique o código que aceita a lista antes de alterar a variável e refaça o deploy depois da alteração.
 6. [ ] Fazer um envio real pelo formulário e conferir se o cartão aparece na lista do Trello.
 7. [ ] Repetir o mesmo e-mail e confirmar que **não** cria um segundo cartão.
 8. [ ] Abrir o site no celular (iPhone e Android) e conferir formulário, botão fixo e leitura.

@@ -27,6 +27,7 @@ O repositório tem duas partes: o programa que gera os jogos e o site que vende 
 O formulário da landing envia para `/api/leads` ([`functions/api/leads.js`](functions/api/leads.js)). Configure como secrets da Cloudflare Pages (ou em `.dev.vars` localmente, a partir de [`.dev.vars.example`](.dev.vars.example)):
 
 - `TRELLO_KEY`, `TRELLO_TOKEN`, `TRELLO_LIST_ID` (obrigatórios) e `ALLOWED_ORIGIN` (opcional).
+- Para aceitar ambos os domínios do site, configure `ALLOWED_ORIGIN` como `https://senamatch.pages.dev,https://senamatch.com.br` (origens exatas separadas por vírgula). Publique primeiro o código que aceita a lista, atualize a variável e refaça o deploy. Sem `ALLOWED_ORIGIN`, a checagem de origem fica desativada.
 - `WHATSAPP_NUMERO` (DDD + número, só dígitos): usado por `/go/whatsapp` ([`functions/go/whatsapp.js`](functions/go/whatsapp.js)) para os botões de WhatsApp, sem expor o número no repositório.
 - Nunca coloque chave ou token no HTML nem no repositório.
 - Publicação: Cloudflare Pages com diretório de saída `site` (ver [`wrangler.toml`](wrangler.toml)).

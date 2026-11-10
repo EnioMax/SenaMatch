@@ -108,6 +108,25 @@ describe('POST /api/leads', () => {
     assert.equal(r.status, 200);
     assert.equal(chamadas.length, 0);
   });
+  it('aceita as origens configuradas, sem aceitar domínios parecidos ou origem ausente', async () => {
+    const env = { ...ENV, ALLOWED_ORIGIN: 'https://senamatch.pages.dev, https://senamatch.com.br' };
+    for (const origem of ['https://senamatch.pages.dev', 'https://senamatch.com.br']) {
+      const r = await onRequestPost({ request: pedido(LEAD, { Origin: origem }), env });
+      assert.equal(r.status, 200);
+    }
+    chamadas.length = 0;
+    for (const origem of ['https://senamatch.com.br.evil.test', 'http://senamatch.com.br', 'null']) {
+      const r = await onRequestPost({ request: pedido(LEAD, { Origin: origem }), env });
+      assert.equal(r.status, 403);
+    }
+    assert.equal((await onRequestPost({ request: pedido(LEAD), env })).status, 403);
+    assert.equal(chamadas.length, 0);
+  });
+  it('mantém compatibilidade com uma única origem configurada', async () => {
+    const env = { ...ENV, ALLOWED_ORIGIN: 'https://senamatch.pages.dev' };
+    assert.equal((await onRequestPost({ request: pedido(LEAD, { Origin: 'https://senamatch.pages.dev' }), env })).status, 200);
+    assert.equal((await onRequestPost({ request: pedido(LEAD, { Origin: 'https://senamatch.com.br' }), env })).status, 403);
+  });
   it('recusa origem diferente, formato errado e corpo grande', async () => {
     const env = { ...ENV, ALLOWED_ORIGIN: 'https://senamatch.pages.dev' };
     assert.equal((await onRequestPost({ request: pedido(LEAD, { Origin: 'https://outro.com' }), env })).status, 403);

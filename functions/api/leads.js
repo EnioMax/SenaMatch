@@ -1,7 +1,7 @@
 // Cloudflare Pages Function: POST /api/leads -> cria um cartão no Trello.
 // Segredos (Cloudflare > Settings > Variables and Secrets; localmente em .dev.vars):
 //   TRELLO_KEY, TRELLO_TOKEN, TRELLO_LIST_ID  (obrigatórios)
-//   ALLOWED_ORIGIN                            (opcional, ex.: https://senamatch.pages.dev)
+//   ALLOWED_ORIGIN                            (opcional, origens separadas por vírgula)
 
 const TRELLO = 'https://api.trello.com/1';
 const LIMITE_CORPO = 2000;
@@ -79,7 +79,9 @@ export async function onRequestPost({ request, env }) {
   if (!env.TRELLO_KEY || !env.TRELLO_TOKEN || !env.TRELLO_LIST_ID) return json({ ok: false, erro: 'configuracao' }, 500);
 
   const origem = request.headers.get('Origin');
-  if (env.ALLOWED_ORIGIN && origem !== env.ALLOWED_ORIGIN) return json({ ok: false, erro: 'origem' }, 403);
+  if (env.ALLOWED_ORIGIN && !env.ALLOWED_ORIGIN.split(',').map((item) => item.trim()).filter(Boolean).includes(origem)) {
+    return json({ ok: false, erro: 'origem' }, 403);
+  }
   if (!(request.headers.get('Content-Type') || '').includes('application/json')) return json({ ok: false, erro: 'formato' }, 415);
 
   const texto = await request.text();
