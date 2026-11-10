@@ -1,6 +1,6 @@
 """Gera site/data/lotes_demo.js: lotes de 5 jogos calculados pelo núcleo do programa (nucleo.py).
 
-É só para demonstração do site estático: usa um segredo FICTÍCIO e as âncoras padrão (01..60),
+É só para demonstração do site estático: usa um segredo FICTÍCIO e as âncoras padrão,
 então estes jogos NÃO são os da venda. O segredo de produção nunca deve aparecer neste repositório.
 
 Uso (a partir da raiz do repositório):

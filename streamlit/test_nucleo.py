@@ -42,7 +42,6 @@ def test_bloco_valido():
         assert len(set(jogo)) == 6
         assert all(int(d) in ANC[c] for d, c in zip(jogo, colunas[0]))  # Dk vem da coluna k
         assert set(map(int, jogo)) <= permitidas
-        assert len({(int(d) - 1) // 2 for d in jogo}) == 6  # nenhum par repetido no jogo
 
 
 def test_distribuicao_igual_e_sem_repeticao():
@@ -159,7 +158,7 @@ def test_ancoras_padrao_personalizadas():
 
     with tempfile.TemporaryDirectory() as d:
         caminho = Path(d) / "ancoras_padrao.json"
-        assert n.carregar_ancoras_padrao(caminho) == n.PADRAO_ANCORAS  # sem arquivo: 01..60
+        assert n.carregar_ancoras_padrao(caminho) == n.PADRAO_ANCORAS
         nova = [[2 * i + 2, 2 * i + 1] for i in range(30)][::-1]
         n.salvar_ancoras_padrao(nova, caminho)
         assert n.carregar_ancoras_padrao(caminho) == nova
@@ -171,7 +170,7 @@ def test_ancoras_padrao_personalizadas():
             except ValueError:
                 pass
         assert n.carregar_ancoras_padrao(caminho) == nova
-        # arquivo corrompido ou inválido volta ao 01..60
+        # arquivo corrompido ou inválido volta às âncoras do cliente
         caminho.write_text("{ruim", encoding="utf-8")
         assert n.carregar_ancoras_padrao(caminho) == n.PADRAO_ANCORAS
         caminho.write_text("[[1,1]]", encoding="utf-8")
@@ -340,18 +339,18 @@ def test_golden_saida_estavel():
     """
     import hashlib
 
-    assert n.criar_id_lote(SEMENTE) == "36F1-CF0F"
+    assert n.criar_id_lote(SEMENTE) == "7F9D-9347"
     ordem = n.ordem_dos_blocos(SEMENTE)
-    assert ordem[:5].tolist() == [318814, 319136, 412305, 230972, 572596]
+    assert ordem[:5].tolist() == [308586, 465184, 384481, 239679, 68882]
     assert hashlib.sha256(ordem[:1000].tobytes()).hexdigest() == (
-        "4637ff06c2867187ff831c9e1c8921c5d998bba4e00a409d4243e09e77ec97d0"
+        "c6f61db516e5fd207fd8486884065fdbd1010a0e92acf89d794d41fc6442ad5f"
     )
     _, jogos = n.gerar_lotes(ANC, SEMENTE, np.array([0, 1, n.TOTAL_LOTES - 1]))
     assert jogos[0].tolist() == [
-        [7, 11, 28, 32, 42, 47], [12, 16, 30, 39, 49, 57], [6, 9, 14, 26, 32, 43],
-        [7, 9, 15, 25, 33, 44], [9, 11, 16, 37, 42, 52],
+        [18, 21, 29, 35, 46, 48], [5, 11, 15, 38, 42, 45], [6, 15, 20, 24, 25, 39],
+        [8, 14, 15, 16, 28, 48], [18, 31, 37, 43, 48, 57],
     ]
-    assert jogos[2, 4].tolist() == [20, 26, 30, 38, 42, 43]
+    assert jogos[2, 4].tolist() == [4, 10, 13, 33, 36, 53]
 
 
 if __name__ == "__main__":

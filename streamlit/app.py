@@ -27,6 +27,7 @@ import pandas as pd
 import streamlit as st
 
 import caixa
+import catalogo_filtrado as cf
 import nucleo as n
 
 FAIXAS = {6: "🏆 Sena", 5: "🥈 Quina", 4: "🥉 Quadra"}
@@ -744,7 +745,7 @@ if botao_definir.button(
         st.session_state["aviso_padrao"] = "✅ Âncoras definidas como o novo padrão."
         st.rerun()
 if padrao_personalizado and botao_original.button(
-    "Voltar ao padrão original (01 a 60)", key="btn_padrao_original", width="stretch"
+    "Voltar ao padrão do cliente", key="btn_padrao_original", width="stretch"
 ):
     try:
         n.remover_ancoras_padrao()
@@ -753,7 +754,7 @@ if padrao_personalizado and botao_original.button(
     else:
         st.session_state["ancoras_vazias"] = False
         st.session_state["versao_ancoras"] += 1
-        st.session_state["aviso_padrao"] = "✅ Padrão original (01 a 60) restaurado."
+        st.session_state["aviso_padrao"] = "✅ Padrão do cliente restaurado."
         st.rerun()
 
 st.divider()
@@ -788,3 +789,71 @@ if resultado:
         st.info("As âncoras ou o código foram alterados. Clique em gerar para criar o novo conjunto.")
     mostrar_resultado(resultado)
     mostrar_conferidor(resultado)
+
+st.divider()
+with st.expander("🧪 Catálogo filtrado experimental", expanded=False):
+    st.warning(
+        "Somente para testes: não use estes jogos para venda ou entrega. "
+        "O catálogo tem numeração própria e usa um segredo fictício."
+    )
+    st.caption(
+        "Exclui jogos com cinco ou mais dezenas da mesma paridade, quatro ou mais consecutivas "
+        "ou uma progressão aritmética. A filtragem não aumenta a chance de uma combinação."
+    )
+    texto_experimental = st.text_area(
+        "Âncoras para o experimento",
+        key="ancoras_experimentais",
+        placeholder="N1: 07, 12; N2: 11, 27; ... até N30",
+        help="Cole os 30 pares na ordem N1 a N30, separados por ponto e vírgula ou por linha.",
+    )
+    if st.session_state.get("experimental_texto") != texto_experimental:
+        st.session_state.pop("catalogo_experimental", None)
+        st.session_state.pop("experimental_texto", None)
+
+    if st.button("Gerar catálogo experimental", key="gerar_experimental"):
+        st.session_state.pop("catalogo_experimental", None)
+        st.session_state.pop("experimental_texto", None)
+        try:
+            ancoras_teste = cf.interpretar_ancoras(texto_experimental)
+            semente_teste = n.criar_semente("segredo-ficticio-experimental", "experimento", ancoras_teste)
+            with st.spinner("Filtrando os jogos e organizando lotes. Isso pode levar alguns minutos..."):
+                catalogo = cf.criar_catalogo(ancoras_teste, semente_teste)
+        except ValueError as erro:
+            st.error(f"Não foi possível gerar o catálogo experimental: {erro}")
+        else:
+            st.session_state["catalogo_experimental"] = catalogo
+            st.session_state["experimental_texto"] = texto_experimental
+            st.session_state.pop("numero_lote_experimental", None)
+
+    catalogo = st.session_state.get("catalogo_experimental")
+    if catalogo is not None:
+        aprovados = len(catalogo.indice)
+        st.write(
+            f"Catálogo original: **{milhar(n.TOTAL_JOGOS)} jogos** · "
+            f"Excluídos: **{milhar(n.TOTAL_JOGOS - aprovados)}** · "
+            f"Aprovados: **{milhar(aprovados)}** · "
+            f"Lotes experimentais: **{milhar(catalogo.total_lotes)}**"
+        )
+        st.caption("A numeração experimental não corresponde à do catálogo original.")
+        if catalogo.total_lotes:
+            numero = st.number_input(
+                "Número do lote experimental",
+                min_value=1,
+                max_value=catalogo.total_lotes,
+                value=1,
+                step=1,
+                key="numero_lote_experimental",
+            )
+            jogos_experimentais = catalogo.gerar_lotes(np.array([numero - 1]))[0]
+            tabela = pd.DataFrame(
+                jogos_experimentais,
+                index=[f"Jogo {i}" for i in range(1, n.JOGOS_POR_LOTE + 1)],
+                columns=[f"D{i}" for i in range(1, 7)],
+            )
+            st.dataframe(tabela, width="stretch")
+        else:
+            st.info("Nenhum lote completo foi encontrado com essas âncoras.")
+        if st.button("Liberar catálogo experimental da memória", key="limpar_experimental"):
+            st.session_state.pop("catalogo_experimental", None)
+            st.session_state.pop("experimental_texto", None)
+            st.rerun()

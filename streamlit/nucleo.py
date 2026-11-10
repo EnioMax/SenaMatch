@@ -54,7 +54,11 @@ TOTAL_ARQUIVOS = ceil(TOTAL_LOTES / LOTES_POR_ARQUIVO)
 ARQUIVOS_POR_ZIP = 5
 TOTAL_ZIPS = ceil(TOTAL_ARQUIVOS / ARQUIVOS_POR_ZIP)
 
-PADRAO_ANCORAS = [[2 * i + 1, 2 * i + 2] for i in range(NUM_COLUNAS)]
+PADRAO_ANCORAS = [
+    [7, 12], [11, 27], [6, 38], [31, 46], [50, 35], [14, 52], [34, 40], [55, 10], [17, 49], [45, 33],
+    [3, 57], [13, 47], [16, 9], [24, 18], [20, 43], [23, 30], [1, 28], [25, 51], [22, 39], [8, 32],
+    [15, 58], [56, 60], [37, 53], [4, 41], [19, 44], [36, 29], [21, 54], [42, 26], [2, 48], [5, 59],
+]
 ARQUIVO_ANCORAS_PADRAO = Path(__file__).with_name("ancoras_padrao.json")
 
 CABECALHO_CSV = "Lote;Jogo;" + ";".join(f"D{k}" for k in range(1, COLUNAS_POR_BLOCO + 1)) + "\n"
@@ -108,7 +112,7 @@ def validar_ancoras(ancoras: list[list[int | None]]) -> list[str]:
 # Âncoras padrão definidas pelo usuário
 # ----------------------------------------------------------------------
 def carregar_ancoras_padrao(caminho: Path = ARQUIVO_ANCORAS_PADRAO) -> list[list[int]]:
-    """Âncoras padrão: as salvas pelo usuário, se o arquivo existir e for válido; senão 01..60."""
+    """Âncoras padrão salvas pelo usuário, ou as âncoras definidas no código."""
     try:
         dados = json.loads(caminho.read_text(encoding="utf-8"))
         ancoras = [[int(d) for d in col] for col in dados]
@@ -133,7 +137,7 @@ def salvar_ancoras_padrao(ancoras: list[list[int]], caminho: Path = ARQUIVO_ANCO
 
 
 def remover_ancoras_padrao(caminho: Path = ARQUIVO_ANCORAS_PADRAO) -> None:
-    """Volta ao padrão original (01..60)."""
+    """Remove as âncoras personalizadas e restaura o padrão definido no código."""
     caminho.unlink(missing_ok=True)
 
 
