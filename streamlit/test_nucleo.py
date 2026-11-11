@@ -373,6 +373,13 @@ def test_jogos_excluidos_regras():
     assert not n.jogos_excluidos(np.array(aprovados)).any()
     assert n.jogos_excluidos(np.array([5, 6, 7, 8, 19, 60]))  # 4 seguidas, 3 ímpares e 3 pares
     assert n.jogos_excluidos(np.array(excluidos)).shape == (len(excluidos),)
+    # Os motivos mostrados na tela concordam com a máscara, para todos os jogos do teste
+    for jogo in excluidos + aprovados:
+        assert bool(n.motivos_exclusao(jogo)) == bool(n.jogos_excluidos(np.array(jogo)))
+    assert n.motivos_exclusao([22, 23, 24, 25, 26, 27]) == ["6 dezenas consecutivas"]
+    assert n.motivos_exclusao([2, 8, 14, 30, 44, 60]) == ["as 6 dezenas são pares"]
+    assert n.motivos_exclusao([1, 7, 15, 33, 49, 59]) == ["as 6 dezenas são ímpares"]
+    assert n.motivos_exclusao([10, 11, 12, 13, 30, 50]) == ["4 dezenas consecutivas"]
     try:
         n.jogos_excluidos(np.array([1, 2, 3]))
         raise AssertionError("deveria recusar jogo com menos de 6 dezenas")
@@ -387,6 +394,7 @@ def test_lotes_aprovados_so_tem_jogos_validos():
     mascara = n.lotes_aprovados(ANC, SEMENTE, lotes)
     assert np.array_equal(mascara[:500], manual)
     assert 0.85 < mascara.mean() < 0.92  # ~88% dos lotes com as âncoras do cliente
+    assert all(bool(n.motivos_exclusao(j)) == bool(e) for j, e in zip(jogos[:300].reshape(-1, 6), n.jogos_excluidos(jogos[:300]).reshape(-1)))
     assert not n.jogos_excluidos(jogos[mascara]).any()
     assert n.jogos_excluidos(jogos[~mascara]).any(axis=-1).all()
 

@@ -200,6 +200,8 @@ def mostrar_resultado(res: dict) -> None:
                     else:
                         st.markdown(f"**Lote {inicio + i:07d}** · ✅ aprovado")
                     st.markdown(html_bloco(colunas[i], jogos[i]), unsafe_allow_html=True)
+                    for k in np.flatnonzero(excluidos_tela[i]):
+                        st.caption(f"⛔ Jogo {k + 1}: {'; '.join(n.motivos_exclusao(jogos[i, k]))}.")
 
     with aba_arquivos:
         st.write(

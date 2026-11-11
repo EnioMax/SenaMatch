@@ -286,6 +286,24 @@ def jogos_excluidos(jogos: np.ndarray) -> np.ndarray:
     return mesma_paridade | sequencia
 
 
+def motivos_exclusao(jogo) -> list[str]:
+    """Por que um jogo é excluído (lista vazia se for aprovado); mesmas regras de `jogos_excluidos`."""
+    dezenas = sorted(int(d) for d in jogo)
+    motivos = []
+    pares = sum(d % 2 == 0 for d in dezenas)
+    if pares == COLUNAS_POR_BLOCO:
+        motivos.append("as 6 dezenas são pares")
+    if pares == 0:
+        motivos.append("as 6 dezenas são ímpares")
+    maior = atual = 1
+    for anterior, seguinte in zip(dezenas, dezenas[1:]):
+        atual = atual + 1 if seguinte == anterior + 1 else 1
+        maior = max(maior, atual)
+    if maior > MAX_SEGUIDAS:
+        motivos.append(f"{maior} dezenas consecutivas")
+    return motivos
+
+
 def lotes_aprovados(ancoras: np.ndarray, semente: int, lotes: np.ndarray) -> np.ndarray:
     """Máscara dos lotes (0-based) aprovados: nenhum dos 5 jogos é excluído."""
     _, jogos = gerar_lotes(ancoras, semente, lotes)
