@@ -5,9 +5,9 @@ Status: proposta para validação com o cliente. Itens marcados com **(decidir)*
 ## 1. Produto
 
 - O produto é o **lote**: 5 jogos de 6 dezenas da Mega-Sena, gerados pelo núcleo ([`streamlit/nucleo.py`](../streamlit/nucleo.py)).
-- Universo: 38.001.600 jogos distintos em **7.600.320 lotes numerados** (cada jogo existe uma única vez).
+- Universo: o programa gera 38.001.600 jogos distintos. Os jogos que se enquadram nas regras de exclusão (R13) saem, e os **7.410.442 lotes numerados** (com as âncoras do cliente) são formados só com os **37.052.210 jogos aprovados** que entram em lotes (cada jogo existe uma única vez).
 - O cliente compra a **lista de jogos e a conferência**. A aposta é feita por ele nas lotéricas ou no app da Caixa. O SenaMatch **não vende aposta, não recebe prêmio e não intermedeia jogo**.
-- Todo jogo tem a mesma chance (1 em 50.063.860). O que o produto entrega: exclusividade do lote, cobertura equilibrada (cada dezena aparece em 3.800.160 jogos), organização e conferência automática. **Nenhum texto do site pode prometer mais chance de ganhar ou ganhos.**
+- Todo jogo tem a mesma chance (1 em 50.063.860). O que o produto entrega: exclusividade do lote, cobertura equilibrada (cada dezena aparece em 3,70 milhões de jogos, com diferença inferior a 1% entre as dezenas), organização e conferência automática. **Nenhum texto do site pode prometer mais chance de ganhar ou ganhos.**
 
 ## 2. Regras
 
@@ -15,7 +15,7 @@ Status: proposta para validação com o cliente. Itens marcados com **(decidir)*
 |---|---|
 | R1 | **Código global único.** Toda a venda usa um único código de catálogo e um único conjunto de âncoras, guardados no servidor. Código por cliente permitiria dois clientes receberem os mesmos jogos. |
 | R2 | **Exclusividade.** Um lote nunca é vendido duas vezes. Vale `UNIQUE(numero_lote)` no banco. |
-| R3 | **Alocação aleatória e atômica.** Ao confirmar o pagamento, o servidor sorteia N números livres **e aprovados (R13)** (em transação, com retry em conflito de unicidade). Alocar em sequência entregaria lotes vizinhos, e um lote só é "reservado" depois de pago. |
+| R3 | **Alocação aleatória e atômica.** Ao confirmar o pagamento, o servidor sorteia N números livres do catálogo (R13) (em transação, com retry em conflito de unicidade). Alocar em sequência entregaria lotes vizinhos, e um lote só é "reservado" depois de pago. |
 | R4 | **Segredo só no servidor.** `SENAMATCH_SECRET` nunca vai ao navegador. Os jogos de um lote não vendido não são expostos em nenhuma API. Quem tem o segredo reproduz os 38 milhões de jogos: guardar em gerenciador de segredos e nunca trocá-lo depois de vender. |
 | R5 | **Entrega automática** após a confirmação do pagamento (webhook): os lotes aparecem em "Meus lotes" e o cliente recebe aviso por e-mail e, com consentimento, por WhatsApp. |
 | R6 | **Acesso sem senha.** E-mail e link mágico de uso único (expira em 15 min). Cada cliente só vê os lotes do próprio `cliente_id`. |
@@ -25,7 +25,7 @@ Status: proposta para validação com o cliente. Itens marcados com **(decidir)*
 | R10 | **LGPD.** Consentimento separado para (a) uso do e-mail para o produto e (b) contato por WhatsApp/marketing. Descadastro em 1 clique, exclusão de dados sob pedido, política de privacidade publicada. |
 | R11 | **Reembolso (decidir, com revisão jurídica).** Compra online tem direito de arrependimento de 7 dias (CDC, art. 49). Sugestão: reembolso integral se nenhum sorteio tiver sido conferido com o lote. Depois disso, o lote já foi "usado". |
 | R12 | **Lote entregue é definitivo.** Mesmo código, âncoras e lote geram sempre os mesmos jogos (determinístico), então reenvio e reemissão são idênticos. |
-| R13 | **Seleção para a venda (regras v1, pedidas pelo cliente).** Só se vende lote **aprovado**: nenhum dos 5 jogos pode ter as 6 dezenas pares, as 6 ímpares ou 4 ou mais dezenas consecutivas (ex.: 22-23-24-25). A numeração e os jogos do conjunto não mudam: a alocação (R3) sorteia apenas entre lotes aprovados (`nucleo.lotes_aprovados`) e registra `REGRAS_VERSAO` em cada venda. Com as âncoras do cliente, ~88,1% dos lotes são aprovados (6,70 milhões de 7,60 milhões). Isso não aumenta a chance de ganhar (1 em 50.063.860) e a comunicação nunca deve prometer isso. |
+| R13 | **Exclusão de jogos (regras v1, pedidas pelo cliente).** Os jogos com as 6 dezenas pares, as 6 ímpares ou 4 ou mais dezenas consecutivas (ex.: 22-23-24-25) **não entram em nenhum lote**. Os lotes de 5 são formados só com os jogos aprovados, na ordem do conjunto completo (`nucleo.Catalogo`), com numeração própria. Com as âncoras do cliente: 949.388 jogos excluídos (439.019 só pares, 439.019 só ímpares, 71.350 com 4+ consecutivas), 37.052.212 aprovados e 7.410.442 lotes; os 2 últimos jogos aprovados ficam sem lote. A numeração dos lotes depende das âncoras, do segredo e da versão das regras: registre `REGRAS_VERSAO` em cada venda e nunca altere as regras depois de vender. Isso não aumenta a chance de ganhar (1 em 50.063.860) e a comunicação nunca deve prometer isso. |
 
 ## 3. Preços sugeridos (hipótese a validar)
 

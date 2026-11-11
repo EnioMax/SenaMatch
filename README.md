@@ -22,9 +22,14 @@ O repositório tem duas partes: o programa que gera os jogos e o site que vende 
 - O painel do gestor guarda dados no `localStorage` do navegador, sem autenticação: não use com dados reais.
 - Os resultados da página do lote são **oficiais**, vindos da API da Caixa por `/api/sorteios` (com cache de 10 min). O painel ainda usa concursos fictícios.
 
-### Seleção para a venda (regras v1)
+### Exclusão de jogos e catálogo de venda (regras v1)
 
-O cliente pediu para enxugar o catálogo. O núcleo ([`streamlit/nucleo.py`](streamlit/nucleo.py)) mantém a numeração e os jogos; a seleção só escolhe **quais lotes vender**. Um lote é aprovado quando nenhum dos 5 jogos tem as 6 dezenas pares, as 6 ímpares ou 4 ou mais dezenas consecutivas. Funções: `jogos_excluidos`, `lotes_aprovados`, `contar_lotes_aprovados` e `lotes_aprovados_a_partir`; versão em `REGRAS_VERSAO`. Com as âncoras do cliente, cerca de 88,1% dos lotes (6,70 milhões) são aprovados. No app, o painel **Seleção para a venda** conta os lotes e a lista de lotes marca cada um como aprovado ou fora da venda. O catálogo demo do site só usa lotes aprovados. Isso não aumenta a chance de ganhar.
+O cliente pediu para enxugar o catálogo: os jogos com as 6 dezenas pares, as 6 ímpares ou 4 ou mais dezenas consecutivas **não entram em nenhum lote**. O núcleo ([`streamlit/nucleo.py`](streamlit/nucleo.py)) mantém o conjunto completo (`gerar_lotes`) e forma o **catálogo de venda** (`criar_catalogo` → `Catalogo`): os jogos aprovados, na ordem do conjunto completo, agrupados de 5 em 5, com numeração própria. Com as âncoras do cliente são 949.388 jogos excluídos, 37.052.212 aprovados e **7.410.442 lotes** (os 2 últimos aprovados ficam sem lote). O catálogo guarda só 1 bit por jogo (~5 MB) e leva cerca de 20 s para ser montado.
+
+- O app (tela de lotes, arquivos CSV/ZIP, conferidor e simulador) usa o catálogo. O painel **Jogos excluídos do catálogo** mostra os totais por regra.
+- Como os jogos excluídos saem, as dezenas deixam de aparecer exatamente o mesmo número de vezes (diferença inferior a 1%).
+- O catálogo demo do site é formado por esse catálogo (`tools/gerar_lotes_demo.py`).
+- Isso não aumenta a chance de ganhar. Versão das regras em `REGRAS_VERSAO`.
 
 ### Catálogo filtrado experimental
 

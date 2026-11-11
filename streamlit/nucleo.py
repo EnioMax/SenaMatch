@@ -12,6 +12,10 @@ Estrutura:
     G' = (G + k*23.751) mod 118.755. O jogo 1 (k=0) fica no próprio grupo; os outros 4 vêm de
     grupos diferentes, espalhados por toda a lista. Cada jogo aparece uma única vez, sem sorteio.
 
+CATÁLOGO DE VENDA: os jogos que se enquadram nas regras de exclusão (ver `jogos_excluidos`) não entram em
+nenhum lote; `Catalogo` forma os lotes de 5 só com os jogos aprovados, na ordem acima, com numeração própria.
+Isso desfaz a igualdade exata entre as dezenas (diferença inferior a 1%).
+
 O código do apostador e o segredo (HMAC) definem a ORDEM dos blocos e a ordem dos
 64 jogos dentro de cada bloco. Mesmo código + mesmas âncoras -> sempre o mesmo conjunto.
 Tudo é calculado sob demanda (por faixa de lotes), sem guardar os 38 milhões de jogos.
@@ -257,84 +261,37 @@ def gerar_lotes(ancoras: np.ndarray, semente: int, lotes: np.ndarray) -> tuple[n
 
 
 # ----------------------------------------------------------------------
-# Seleção para a venda (regras do cliente)
+# Regras de exclusão de jogos (pedidas pelo cliente)
 #
-# A geração acima não muda: a numeração dos lotes continua a mesma. A regra só decide quais lotes
-# podem ser vendidos: um lote é APROVADO quando nenhum dos seus 5 jogos é excluído.
-# Excluir padrões não aumenta a chance de uma combinação (todas valem 1 em 50.063.860).
+# Os jogos que se enquadram nas regras NÃO entram no catálogo de venda (ver `Catalogo`): os lotes
+# de 5 são formados só com jogos aprovados. Excluir padrões não aumenta a chance de uma combinação
+# (todas valem 1 em 50.063.860).
 # ----------------------------------------------------------------------
 REGRAS_VERSAO = "v1"  # registre com qual versão cada lote foi vendido
 MAX_SEGUIDAS = 3  # exclui jogos com 4 ou mais dezenas consecutivas (ex.: 22-23-24-25)
+MOTIVOS_EXCLUSAO = ("todas pares", "todas ímpares", f"{MAX_SEGUIDAS + 1} ou mais consecutivas")
 
 
-def jogos_excluidos(jogos: np.ndarray) -> np.ndarray:
-    """Máscara dos jogos excluídos (jogos: (..., 6), com dezenas de 1 a 60, em qualquer ordem).
+def motivos_exclusao(jogos: np.ndarray) -> np.ndarray:
+    """Máscaras de exclusão por regra, shape (3, ...): pares, ímpares e consecutivas (ver MOTIVOS_EXCLUSAO).
 
-    Regras da versão v1: (1) as 6 dezenas pares ou as 6 ímpares; (2) mais de MAX_SEGUIDAS dezenas
-    consecutivas (inclui 01-02-03-04-05-06 e 22-23-24-25-26-27).
+    jogos: (..., 6), com dezenas de 1 a 60, em qualquer ordem.
     """
     ordenados = np.sort(np.asarray(jogos, dtype=np.int16), axis=-1)
     if ordenados.shape[-1] != COLUNAS_POR_BLOCO:
         raise ValueError("Cada jogo deve ter 6 dezenas na última dimensão.")
     pares = (ordenados % 2 == 0).sum(axis=-1)
-    mesma_paridade = (pares == 0) | (pares == COLUNAS_POR_BLOCO)
     seguidas = np.diff(ordenados, axis=-1) == 1
-    janela = MAX_SEGUIDAS  # 4 consecutivas = 3 diferenças iguais a 1 em sequência
-    sequencia = np.zeros(mesma_paridade.shape, dtype=bool)
-    for i in range(seguidas.shape[-1] - janela + 1):
-        sequencia |= seguidas[..., i : i + janela].all(axis=-1)
-    return mesma_paridade | sequencia
+    sequencia = np.zeros(pares.shape, dtype=bool)
+    # 4 consecutivas = 3 diferenças iguais a 1 em sequência
+    for i in range(seguidas.shape[-1] - MAX_SEGUIDAS + 1):
+        sequencia |= seguidas[..., i : i + MAX_SEGUIDAS].all(axis=-1)
+    return np.stack([pares == COLUNAS_POR_BLOCO, pares == 0, sequencia])
 
 
-def motivos_exclusao(jogo) -> list[str]:
-    """Por que um jogo é excluído (lista vazia se for aprovado); mesmas regras de `jogos_excluidos`."""
-    dezenas = sorted(int(d) for d in jogo)
-    motivos = []
-    pares = sum(d % 2 == 0 for d in dezenas)
-    if pares == COLUNAS_POR_BLOCO:
-        motivos.append("as 6 dezenas são pares")
-    if pares == 0:
-        motivos.append("as 6 dezenas são ímpares")
-    maior = atual = 1
-    for anterior, seguinte in zip(dezenas, dezenas[1:]):
-        atual = atual + 1 if seguinte == anterior + 1 else 1
-        maior = max(maior, atual)
-    if maior > MAX_SEGUIDAS:
-        motivos.append(f"{maior} dezenas consecutivas")
-    return motivos
-
-
-def lotes_aprovados(ancoras: np.ndarray, semente: int, lotes: np.ndarray) -> np.ndarray:
-    """Máscara dos lotes (0-based) aprovados: nenhum dos 5 jogos é excluído."""
-    _, jogos = gerar_lotes(ancoras, semente, lotes)
-    return ~jogos_excluidos(jogos).any(axis=-1)
-
-
-def contar_lotes_aprovados(
-    ancoras: np.ndarray, semente: int, total: int = TOTAL_LOTES, tamanho: int = 100_000, progresso=None
-) -> int:
-    """Quantos dos primeiros `total` lotes são aprovados (o conjunto todo leva alguns minutos)."""
-    aprovados = 0
-    for inicio in range(0, total, tamanho):
-        lotes = np.arange(inicio, min(inicio + tamanho, total))
-        aprovados += int(lotes_aprovados(ancoras, semente, lotes).sum())
-        if progresso:
-            progresso(min(inicio + tamanho, total), total)
-    return aprovados
-
-
-def lotes_aprovados_a_partir(ancoras: np.ndarray, semente: int, inicio: int, quantidade: int) -> np.ndarray:
-    """Os próximos `quantidade` lotes aprovados (0-based), a partir de `inicio` (0-based)."""
-    achados: list[np.ndarray] = []
-    faltam = quantidade
-    passo = max(quantidade * 2, 64)
-    while faltam > 0 and inicio < TOTAL_LOTES:
-        lotes = np.arange(inicio, min(inicio + passo, TOTAL_LOTES))
-        bons = lotes[lotes_aprovados(ancoras, semente, lotes)][:faltam]
-        achados.append(bons)
-        faltam -= len(bons)
-        inicio += passo
-    return np.concatenate(achados) if achados else np.empty(0, dtype=np.int64)
+def jogos_excluidos(jogos: np.ndarray) -> np.ndarray:
+    """Máscara dos jogos excluídos (as 6 dezenas pares, as 6 ímpares ou 4+ consecutivas, ex. 22-23-24-25)."""
+    return motivos_exclusao(jogos).any(axis=0)
 
 
 # ----------------------------------------------------------------------
@@ -351,24 +308,31 @@ def _escrever_2(saida: np.ndarray, col: int, valores: np.ndarray) -> None:
     saida[:, col + 1] = 48 + valores % 10
 
 
-def gerar_csv(ancoras: list[list[int]], semente: int, numero_arquivo: int) -> bytes:
-    """CSV (separador ';', abre direto no Excel): Lote;Jogo;D1..D6, linhas de largura fixa."""
-    ini, fim = intervalo_do_arquivo(numero_arquivo)
-    lotes_arquivo = np.arange(ini, fim)
-    _, jogos = gerar_lotes(ancoras_para_array(ancoras), semente, lotes_arquivo)
-    total_jogos_arquivo = len(lotes_arquivo) * JOGOS_POR_LOTE
-
+def _csv_de_lotes(numeros: np.ndarray, jogos: np.ndarray) -> bytes:
+    """CSV de largura fixa dos lotes (numeros: 0-based; jogos: (n, 5, 6))."""
+    total_jogos_arquivo = len(numeros) * JOGOS_POR_LOTE
     saida = np.full((total_jogos_arquivo, BYTES_PREFIXO_CSV + 3 * COLUNAS_POR_BLOCO), ord(";"), dtype=np.uint8)
 
-    lotes = np.repeat(lotes_arquivo + 1, JOGOS_POR_LOTE)
+    lotes = np.repeat(numeros + 1, JOGOS_POR_LOTE)
     for k in range(7):
         saida[:, 6 - k] = 48 + (lotes // 10**k) % 10
-    saida[:, 8] = 48 + np.tile(np.arange(1, JOGOS_POR_LOTE + 1), len(lotes_arquivo))
+    saida[:, 8] = 48 + np.tile(np.arange(1, JOGOS_POR_LOTE + 1), len(numeros))
     dezenas = jogos.reshape(total_jogos_arquivo, COLUNAS_POR_BLOCO).astype(np.int64)
     for k in range(COLUNAS_POR_BLOCO):
         _escrever_2(saida, BYTES_PREFIXO_CSV + 3 * k, dezenas[:, k])
     saida[:, -1] = ord("\n")
     return CABECALHO_CSV.encode() + saida.tobytes()
+
+
+def gerar_csv(ancoras: list[list[int]], semente: int, numero_arquivo: int) -> bytes:
+    """CSV (separador ';', abre direto no Excel): Lote;Jogo;D1..D6, linhas de largura fixa.
+
+    Conjunto completo, sem as regras de exclusão (a venda usa `Catalogo.gerar_csv`).
+    """
+    ini, fim = intervalo_do_arquivo(numero_arquivo)
+    lotes_arquivo = np.arange(ini, fim)
+    _, jogos = gerar_lotes(ancoras_para_array(ancoras), semente, lotes_arquivo)
+    return _csv_de_lotes(lotes_arquivo, jogos)
 
 
 def arquivos_do_zip(numero_zip: int) -> range:
@@ -543,8 +507,16 @@ def interpretar_lotes(texto: str, total: int = TOTAL_LOTES) -> tuple[np.ndarray 
     return np.concatenate([np.arange(ini, fim, dtype=np.int64) for ini, fim in unidas]), []
 
 
-def conferir_lotes(ancoras: list[list[int]], semente: int, lotes: np.ndarray, sorteios: list[tuple[int, ...]]) -> list[dict]:
+def conferir_lotes(
+    ancoras: list[list[int]],
+    semente: int,
+    lotes: np.ndarray,
+    sorteios: list[tuple[int, ...]],
+    catalogo: "Catalogo | None" = None,
+) -> list[dict]:
     """Confere só os lotes dados (0-based) contra cada sorteio, gerando os jogos uma única vez.
+
+    Com `catalogo`, os lotes são os do catálogo de venda (só jogos aprovados).
 
     Cada jogo vira uma máscara de bits (bit d = dezena d); os acertos são o popcount de
     (jogo & sorteio). Devolve, por sorteio, o mesmo formato de `conferir_sorteio` mais
@@ -557,7 +529,7 @@ def conferir_lotes(ancoras: list[list[int]], semente: int, lotes: np.ndarray, so
     melhor = [0] * len(sorteios)
     for ini in range(0, len(lotes), 20_000):
         grupo = lotes[ini : ini + 20_000]
-        _, jogos = gerar_lotes(anc, semente, grupo)
+        _, jogos = catalogo.gerar_lotes(grupo) if catalogo else gerar_lotes(anc, semente, grupo)
         bits = np.bitwise_or.reduce(np.left_shift(np.uint64(1), jogos.astype(np.uint64)), axis=-1)  # (n, 5)
         for i, mascara in enumerate(mascaras):
             acertos = np.bitwise_count(bits & mascara).astype(np.int64)
@@ -649,3 +621,162 @@ def calcular_retorno(contagem: dict[int, int], premios: dict[int, float], jogos:
     investido = jogos * valor_aposta
     saldo = premio - investido
     return {"premio": premio, "investido": investido, "saldo": saldo, "roi": saldo / investido * 100 if investido else None}
+
+
+# ----------------------------------------------------------------------
+# Catálogo de venda: lotes de 5 formados só com os jogos aprovados
+# ----------------------------------------------------------------------
+class Catalogo:
+    """Os jogos aprovados (fora das regras de exclusão), na ordem do conjunto completo, em lotes de 5.
+
+    O lote N (0-based) reúne os jogos aprovados de posição 5N a 5N+4. Os jogos excluídos não entram em
+    nenhum lote. Se o total de aprovados não for múltiplo de 5, os últimos jogos (`jogos_descartados`,
+    no máximo 4) ficam sem lote. Cada jogo aprovado continua aparecendo uma única vez.
+
+    Guarda só um bit por jogo do conjunto completo (~5 MB) e as somas acumuladas por palavra de 64 bits,
+    o que permite achar "o jogo aprovado nº X" sem percorrer os 38 milhões de jogos.
+    """
+
+    def __init__(self, ancoras: list[list[int]], semente: int, aprovados: np.ndarray, por_dezena: np.ndarray, por_motivo):
+        self.ancoras = [list(par) for par in ancoras]
+        self.semente = semente
+        self._anc = ancoras_para_array(ancoras)
+        self._palavras = np.packbits(aprovados, bitorder="little").view("<u8")
+        self._acumulado = np.concatenate(([0], np.cumsum(np.bitwise_count(self._palavras), dtype=np.int64)))
+        self.total_aprovados = int(self._acumulado[-1])
+        self.total_lotes = self.total_aprovados // JOGOS_POR_LOTE
+        self.total_jogos = self.total_lotes * JOGOS_POR_LOTE
+        self.jogos_descartados = self.total_aprovados - self.total_jogos
+        self.total_excluidos = TOTAL_JOGOS - self.total_aprovados
+        self.excluidos_por_motivo = {motivo: int(q) for motivo, q in zip(MOTIVOS_EXCLUSAO, por_motivo, strict=True)}
+        self.total_arquivos = ceil(self.total_lotes / LOTES_POR_ARQUIVO)
+        self.total_zips = ceil(self.total_arquivos / ARQUIVOS_POR_ZIP)
+        # Jogos por dezena entre os que estão em lotes (tira os poucos descartados no fim)
+        postos = np.arange(self.total_jogos, self.total_aprovados)
+        sobra = self._jogos_dos_postos(postos)[1] if len(postos) else np.empty((0, COLUNAS_POR_BLOCO), np.uint8)
+        self.jogos_por_dezena = por_dezena - np.bincount(sobra.ravel(), minlength=DEZENA_MAX + 1)
+
+    # -- posições (0-based, no conjunto completo) e postos (0-based, entre os aprovados) --
+    def aprovado(self, posicoes: np.ndarray) -> np.ndarray:
+        """Máscara: o jogo na posição dada do conjunto completo é aprovado?"""
+        posicoes = np.asarray(posicoes, dtype=np.int64)
+        deslocamento = (posicoes & 63).astype(np.uint64)
+        return ((self._palavras[posicoes >> 6] >> deslocamento) & np.uint64(1)).astype(bool)
+
+    def posto(self, posicoes: np.ndarray) -> np.ndarray:
+        """Quantos jogos aprovados vêm antes de cada posição (para um jogo aprovado, é o seu posto)."""
+        posicoes = np.asarray(posicoes, dtype=np.int64)
+        palavra = posicoes >> 6
+        antes = (np.uint64(1) << (posicoes & 63).astype(np.uint64)) - np.uint64(1)
+        return self._acumulado[palavra] + np.bitwise_count(self._palavras[palavra] & antes).astype(np.int64)
+
+    def posicoes(self, postos: np.ndarray) -> np.ndarray:
+        """Posição no conjunto completo do jogo aprovado de cada posto (inverso de `posto`)."""
+        postos = np.asarray(postos, dtype=np.int64)
+        if len(postos) and (postos.min() < 0 or postos.max() >= self.total_aprovados):
+            raise ValueError("Posto fora do catálogo.")
+        palavra = np.searchsorted(self._acumulado, postos, side="right") - 1
+        resto = postos - self._acumulado[palavra]
+        saida = np.empty(len(postos), dtype=np.int64)
+        for ini in range(0, len(postos), 100_000):
+            parte = slice(ini, ini + 100_000)
+            bits = (self._palavras[palavra[parte], None] >> np.arange(64, dtype=np.uint64)) & np.uint64(1)
+            alvo = (resto[parte, None] + 1).astype(np.uint64)
+            saida[parte] = palavra[parte] * 64 + np.argmax(np.cumsum(bits, axis=1) == alvo, axis=1)
+        return saida
+
+    def _jogos_dos_postos(self, postos: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        """(colunas, dezenas), ambos (n, 6), dos jogos aprovados nos postos dados."""
+        posicoes = self.posicoes(postos)
+        lotes, k = posicoes // JOGOS_POR_LOTE, posicoes % JOGOS_POR_LOTE
+        unicos, inverso = np.unique(lotes, return_inverse=True)
+        colunas, jogos = gerar_lotes(self._anc, self.semente, unicos)
+        return colunas[inverso, k], jogos[inverso, k]
+
+    def gerar_lotes(self, numeros: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        """Lotes do catálogo (0-based): retorna (colunas (n,5,6), jogos (n,5,6)), dezenas em ordem crescente."""
+        numeros = np.asarray(numeros, dtype=np.int64)
+        if len(numeros) and (numeros.min() < 0 or numeros.max() >= self.total_lotes):
+            raise ValueError("Lote fora do catálogo.")
+        postos = (numeros[:, None] * JOGOS_POR_LOTE + np.arange(JOGOS_POR_LOTE)).reshape(-1)
+        colunas, jogos = self._jogos_dos_postos(postos)
+        formato = (len(numeros), JOGOS_POR_LOTE, COLUNAS_POR_BLOCO)
+        return colunas.reshape(formato), jogos.reshape(formato)
+
+    # -- arquivos --
+    def intervalo_do_arquivo(self, numero: int) -> tuple[int, int]:
+        """Lotes [ini, fim) (0-based) do arquivo `numero` (1..total_arquivos)."""
+        ini = (numero - 1) * LOTES_POR_ARQUIVO
+        return ini, min(ini + LOTES_POR_ARQUIVO, self.total_lotes)
+
+    def gerar_csv(self, numero_arquivo: int) -> bytes:
+        ini, fim = self.intervalo_do_arquivo(numero_arquivo)
+        lotes = np.arange(ini, fim)
+        return _csv_de_lotes(lotes, self.gerar_lotes(lotes)[1])
+
+    def arquivos_do_zip(self, numero_zip: int) -> range:
+        ini = (numero_zip - 1) * ARQUIVOS_POR_ZIP + 1
+        return range(ini, min(ini + ARQUIVOS_POR_ZIP, self.total_arquivos + 1))
+
+    def gerar_zip(self, numero_zip: int, prefixo: str, progresso=None) -> bytes:
+        arquivos = self.arquivos_do_zip(numero_zip)
+        saida = io.BytesIO()
+        with zipfile.ZipFile(saida, "w", zipfile.ZIP_DEFLATED) as zf:
+            for i, numero in enumerate(arquivos):
+                zf.writestr(f"{prefixo}_parte{numero:02d}de{self.total_arquivos}.csv", self.gerar_csv(numero))
+                if progresso:
+                    progresso(i + 1, len(arquivos))
+        return saida.getvalue()
+
+    # -- conferência do catálogo inteiro --
+    def conferir_sorteio(self, sorteio: tuple[int, ...]) -> dict:
+        """Como `conferir_sorteio`, mas só com jogos aprovados e na numeração de lotes do catálogo.
+
+        `melhor` é o maior número de acertos entre os jogos do catálogo; sem Quadra ou mais, usa-se
+        no máximo 3 (com 6 dezenas sorteadas, sempre há jogos com 3 acertos no conjunto completo).
+        """
+        base = conferir_sorteio(self.ancoras, self.semente, sorteio)
+        original = (base["blocos"] - 1) * JOGOS_POR_LOTE + (base["jogos"] - 1)
+        indices = np.flatnonzero(self.aprovado(original))
+        postos = self.posto(original[indices])
+        em_lote = postos < self.total_jogos  # os poucos aprovados do fim, sem lote, ficam de fora
+        indices, postos = indices[em_lote], postos[em_lote]
+        lotes, k = postos // JOGOS_POR_LOTE, postos % JOGOS_POR_LOTE
+        acertos = base["acertos"][indices]
+        ordem = np.lexsort((k, lotes, -acertos))
+        acertos, lotes, k, indices = acertos[ordem], lotes[ordem], k[ordem], indices[ordem]
+        return {
+            "melhor": int(acertos.max()) if len(acertos) else min(base["melhor"], 3),
+            "contagem": {m: int((acertos == m).sum()) for m in (4, 5, 6)},
+            "blocos": lotes + 1,
+            "jogos": k + 1,
+            "dezenas": base["dezenas"][indices],
+            "acertos": acertos,
+            "cobertura": base["cobertura"],
+        }
+
+    def resumir_sorteio(self, sorteio: tuple[int, ...]) -> dict:
+        r = self.conferir_sorteio(sorteio)
+        return {chave: r[chave] for chave in ("contagem", "melhor", "cobertura")}
+
+
+def criar_catalogo(ancoras: list[list[int]], semente: int, tamanho: int = 50_000, progresso=None) -> Catalogo:
+    """Monta o catálogo de venda percorrendo o conjunto completo (cerca de 20 a 40 segundos).
+
+    `progresso(feitos, total)` é chamado a cada faixa de `tamanho` lotes originais.
+    """
+    anc = ancoras_para_array(ancoras)
+    aprovados = np.empty(TOTAL_JOGOS, dtype=bool)
+    por_motivo = np.zeros(len(MOTIVOS_EXCLUSAO), dtype=np.int64)
+    por_dezena = np.zeros(DEZENA_MAX + 1, dtype=np.int64)
+    for ini in range(0, TOTAL_LOTES, tamanho):
+        fim = min(ini + tamanho, TOTAL_LOTES)
+        _, jogos = gerar_lotes(anc, semente, np.arange(ini, fim))
+        motivos = motivos_exclusao(jogos)  # (3, n, 5)
+        ok = ~motivos.any(axis=0)
+        aprovados[ini * JOGOS_POR_LOTE : fim * JOGOS_POR_LOTE] = ok.reshape(-1)
+        por_motivo += motivos.reshape(len(MOTIVOS_EXCLUSAO), -1).sum(axis=1)
+        por_dezena += np.bincount(jogos[ok].ravel(), minlength=DEZENA_MAX + 1)
+        if progresso:
+            progresso(fim, TOTAL_LOTES)
+    return Catalogo(ancoras, semente, aprovados, por_dezena, por_motivo)

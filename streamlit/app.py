@@ -12,6 +12,9 @@ Regra do conjunto:
     e os outros 4 são herdados de grupos diferentes. Nenhum jogo se repete. A regra é fixa (sem sorteio).
   - Cada jogo mostra as 6 dezenas em ordem crescente (menor à esquerda), como o resultado do sorteio.
 
+Catálogo de venda: os jogos que se enquadram nas regras de exclusão (6 pares, 6 ímpares ou 4+ consecutivas)
+ficam de fora e os lotes de 5 são formados só com os jogos aprovados (nucleo.Catalogo), com numeração própria.
+
 O código do apostador e o segredo do servidor definem a ORDEM dos blocos e dos jogos
 (HMAC). Mesmo código + mesmas âncoras -> sempre o mesmo conjunto.
 Os jogos são gerados sob demanda e entregues em arquivos CSV (cabem no Excel).
@@ -126,51 +129,67 @@ def reais(valor: float) -> str:
     return "R$ " + f"{valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
 
-@st.cache_data(show_spinner=False, max_entries=4)
-def contar_aprovados(ancoras: list[list[int]], semente: int) -> int:
-    return n.contar_lotes_aprovados(n.ancoras_para_array(ancoras), semente)
+@st.cache_resource(show_spinner=False, max_entries=2)
+def obter_catalogo(ancoras: tuple, semente: int) -> n.Catalogo:
+    """Catálogo de venda do conjunto (os jogos aprovados em lotes de 5); montado uma vez por conjunto."""
+    return n.criar_catalogo([list(par) for par in ancoras], semente)
 
 
-def mostrar_selecao_venda(ancoras: np.ndarray, semente: int, id_conjunto: str) -> None:
-    """Regras do cliente: quais lotes podem ser vendidos. A numeração e os jogos não mudam."""
-    with st.expander(f"✅ Seleção para a venda (regras {n.REGRAS_VERSAO})", expanded=False):
+def catalogo_de(res: dict) -> n.Catalogo:
+    return obter_catalogo(tuple(tuple(par) for par in res["ancoras"]), res["semente"])
+
+
+def mostrar_regras_exclusao(cat: n.Catalogo) -> None:
+    """Regras do cliente: os jogos excluídos não entram em nenhum lote."""
+    with st.expander(f"✅ Jogos excluídos do catálogo (regras {n.REGRAS_VERSAO})", expanded=False):
         st.write(
-            "Um lote é **aprovado** quando nenhum dos seus 5 jogos tem **as 6 dezenas pares**, "
-            f"**as 6 ímpares** ou **{n.MAX_SEGUIDAS + 1} ou mais dezenas consecutivas** (ex.: 22-23-24-25). "
-            "Lotes com algum jogo assim ficam fora da venda."
+            "Ficam **de fora** os jogos com **as 6 dezenas pares**, **as 6 ímpares** ou "
+            f"**{n.MAX_SEGUIDAS + 1} ou mais dezenas consecutivas** (ex.: 22-23-24-25). "
+            "Os lotes de 5 são formados só com os jogos aprovados, na ordem do conjunto completo."
         )
+        a, b, c, d = st.columns(4)
+        a.metric("Jogos do conjunto completo", milhar(n.TOTAL_JOGOS))
+        b.metric("Jogos excluídos", milhar(cat.total_excluidos))
+        c.metric("Jogos aprovados", milhar(cat.total_aprovados))
+        d.metric("Lotes formados", milhar(cat.total_lotes))
+        st.table(
+            pd.DataFrame(
+                {"Jogos excluídos": [milhar(q) for q in cat.excluidos_por_motivo.values()]},
+                index=pd.Index([m.capitalize() for m in cat.excluidos_por_motivo], name="Regra"),
+            )
+        )
+        if cat.jogos_descartados:
+            st.caption(
+                f"Como {milhar(cat.total_aprovados)} não é múltiplo de {n.JOGOS_POR_LOTE}, os últimos "
+                f"{cat.jogos_descartados} jogos aprovados ficam sem lote."
+            )
         st.caption(
-            "A numeração e os jogos do conjunto não mudam; a regra só escolhe quais lotes vender. "
-            "Excluir padrões não aumenta a chance de uma combinação: todas valem 1 em 50.063.860."
+            "Excluir padrões não aumenta a chance de uma combinação: todas valem 1 em 50.063.860. "
+            "Com a exclusão, as dezenas deixam de aparecer exatamente o mesmo número de vezes."
         )
-        if st.button("Contar lotes aprovados", key="btn_contar_aprovados", help="Leva cerca de 20 a 40 segundos."):
-            st.session_state["aprovados_id"] = id_conjunto
-        if st.session_state.get("aprovados_id") == id_conjunto:
-            with st.spinner("Verificando os lotes do conjunto..."):
-                lista = [[int(d) for d in par] for par in ancoras]
-                aprovados = contar_aprovados(lista, semente)
-            a, b, c = st.columns(3)
-            a.metric("Lotes aprovados", milhar(aprovados))
-            b.metric("Fora da venda", milhar(n.TOTAL_LOTES - aprovados))
-            c.metric("Aprovados", f"{100 * aprovados / n.TOTAL_LOTES:.1f}%".replace(".", ","))
 
 
 def mostrar_resultado(res: dict) -> None:
-    ancoras = n.ancoras_para_array(res["ancoras"])
+    cat = catalogo_de(res)
 
     c1, c2, c3, c4, c5 = st.columns(5)
-    c1.metric("Lotes no conjunto", milhar(n.TOTAL_LOTES), help="Cada lote tem 5 jogos.")
+    c1.metric("Lotes no conjunto", milhar(cat.total_lotes), help="Cada lote tem 5 jogos aprovados.")
     c2.metric("Jogos por lote", n.JOGOS_POR_LOTE, help="Cada lote reúne 5 jogos do conjunto.")
-    c3.metric("Jogos no conjunto", milhar(n.TOTAL_JOGOS), help="Todos os lotes juntos.")
-    c4.metric("Jogos por dezena", milhar(n.JOGOS_POR_DEZENA), help="Quantos jogos do conjunto contêm cada dezena (igual para todas).")
+    c3.metric("Jogos no conjunto", milhar(cat.total_jogos), help="Todos os lotes juntos, sem os jogos excluídos.")
+    por_dezena = cat.jogos_por_dezena[1:]
+    c4.metric(
+        "Jogos por dezena",
+        f"{milhar(int(por_dezena.min()))} a {milhar(int(por_dezena.max()))}",
+        help="Quantos jogos do conjunto contêm cada dezena (menor e maior valor entre as 60 dezenas).",
+    )
     c5.metric("ID do conjunto", res["id"], help="Identifica este conjunto: depende do código do apostador e das âncoras.")
 
-    mostrar_selecao_venda(ancoras, res["semente"], res["id"])
+    mostrar_regras_exclusao(cat)
 
     aba_bloco, aba_arquivos = st.tabs(["🔎 Ver os jogos de um lote", "⬇️ Baixar os jogos do conjunto"])
 
     with aba_bloco:
-        ultimo_inicio = n.TOTAL_LOTES - LOTES_NA_TELA + 1
+        ultimo_inicio = cat.total_lotes - LOTES_NA_TELA + 1
         inicio = st.number_input(
             f"Lote inicial (1 a {milhar(ultimo_inicio)})",
             min_value=1,
@@ -182,8 +201,7 @@ def mostrar_resultado(res: dict) -> None:
         )
         inicio = int(inicio)
         lotes_tela = np.arange(inicio - 1, inicio - 1 + LOTES_NA_TELA)
-        colunas, jogos = n.gerar_lotes(ancoras, res["semente"], lotes_tela)
-        excluidos_tela = n.jogos_excluidos(jogos)  # (lotes, 5)
+        colunas, jogos = cat.gerar_lotes(lotes_tela)
         st.markdown(
             f"**Lotes {inicio:07d} a {inicio + LOTES_NA_TELA - 1:07d}**: {LOTES_NA_TELA} lotes de {n.JOGOS_POR_LOTE} jogos"
         )
@@ -195,17 +213,12 @@ def mostrar_resultado(res: dict) -> None:
         for linha in range(0, LOTES_NA_TELA, COLUNAS_NA_TELA):
             for coluna_st, i in zip(st.columns(COLUNAS_NA_TELA), range(linha, linha + COLUNAS_NA_TELA)):
                 with coluna_st:
-                    if excluidos_tela[i].any():
-                        st.markdown(f"**Lote {inicio + i:07d}** · ⛔ fora da venda")
-                    else:
-                        st.markdown(f"**Lote {inicio + i:07d}** · ✅ aprovado")
+                    st.markdown(f"**Lote {inicio + i:07d}**")
                     st.markdown(html_bloco(colunas[i], jogos[i]), unsafe_allow_html=True)
-                    for k in np.flatnonzero(excluidos_tela[i]):
-                        st.caption(f"⛔ Jogo {k + 1}: {'; '.join(n.motivos_exclusao(jogos[i, k]))}.")
 
     with aba_arquivos:
         st.write(
-            f"O conjunto tem {milhar(n.TOTAL_JOGOS)} jogos, divididos em **{n.TOTAL_ARQUIVOS} arquivos CSV** de até "
+            f"O conjunto tem {milhar(cat.total_jogos)} jogos, divididos em **{cat.total_arquivos} arquivos CSV** de até "
             f"{milhar(n.LOTES_POR_ARQUIVO * n.JOGOS_POR_LOTE)} jogos (cabem em uma planilha do Excel). "
             "Colunas: Lote, Jogo e D1 a D6 (as 6 dezenas do jogo, em ordem crescente)."
         )
@@ -220,37 +233,35 @@ def mostrar_resultado(res: dict) -> None:
         if formato == "Um arquivo CSV":
 
             def rotulo(num: int) -> str:
-                ini, fim = n.intervalo_do_arquivo(num)
-                return f"Arquivo {num:02d} de {n.TOTAL_ARQUIVOS} — lotes {milhar(ini + 1)} a {milhar(fim)}"
+                ini, fim = cat.intervalo_do_arquivo(num)
+                return f"Arquivo {num:02d} de {cat.total_arquivos} — lotes {milhar(ini + 1)} a {milhar(fim)}"
 
-            numero = st.selectbox("Arquivo", range(1, n.TOTAL_ARQUIVOS + 1), format_func=rotulo, key="arquivo_escolhido")
+            numero = st.selectbox("Arquivo", range(1, cat.total_arquivos + 1), format_func=rotulo, key="arquivo_escolhido")
             chave = (res["id"], "csv", numero)
-            nome = f"{prefixo}_parte{numero:02d}de{n.TOTAL_ARQUIVOS}.csv"
+            nome = f"{prefixo}_parte{numero:02d}de{cat.total_arquivos}.csv"
             mime = "text/csv"
         else:
 
             def rotulo(num: int) -> str:
-                arquivos = n.arquivos_do_zip(num)
-                return f"Pacote {num} de {n.TOTAL_ZIPS} — arquivos {arquivos[0]:02d} a {arquivos[-1]:02d}"
+                arquivos = cat.arquivos_do_zip(num)
+                return f"Pacote {num} de {cat.total_zips} — arquivos {arquivos[0]:02d} a {arquivos[-1]:02d}"
 
-            numero = st.selectbox("Pacote", range(1, n.TOTAL_ZIPS + 1), format_func=rotulo, key="zip_escolhido")
+            numero = st.selectbox("Pacote", range(1, cat.total_zips + 1), format_func=rotulo, key="zip_escolhido")
             chave = (res["id"], "zip", numero)
-            nome = f"{prefixo}_pacote{numero}de{n.TOTAL_ZIPS}.zip"
+            nome = f"{prefixo}_pacote{numero}de{cat.total_zips}.zip"
             mime = "application/zip"
             st.caption(
                 f"Cada pacote leva cerca de 10 segundos para ser preparado. "
-                f"Baixe os {n.TOTAL_ZIPS} pacotes para ter o conjunto completo."
+                f"Baixe os {cat.total_zips} pacotes para ter o conjunto completo."
             )
 
         if st.button("Preparar download", key="btn_preparar"):
             if formato == "Um arquivo CSV":
                 with st.spinner("Gerando o arquivo..."):
-                    dados = n.gerar_csv(res["ancoras"], res["semente"], numero)
+                    dados = cat.gerar_csv(numero)
             else:
                 barra = st.progress(0.0, text="Gerando o pacote...")
-                dados = n.gerar_zip(
-                    res["ancoras"],
-                    res["semente"],
+                dados = cat.gerar_zip(
                     numero,
                     prefixo,
                     lambda feitos, total: barra.progress(feitos / total, text=f"Arquivo {feitos} de {total} do pacote"),
@@ -269,20 +280,22 @@ def mostrar_resultado(res: dict) -> None:
 
 
 @st.cache_data(show_spinner=False, max_entries=4)
-def resumir_sorteios(ancoras: list[list[int]], sorteios: list[tuple[int, ...]]) -> list[dict]:
+def resumir_sorteios(ancoras: list[list[int]], semente: int, sorteios: list[tuple[int, ...]]) -> list[dict]:
     """Contagem por faixa e melhor resultado de cada sorteio (sem guardar a lista de jogos)."""
-    return [n.resumir_sorteio(ancoras, sorteio) for sorteio in sorteios]
+    cat = obter_catalogo(tuple(tuple(par) for par in ancoras), semente)
+    return [cat.resumir_sorteio(sorteio) for sorteio in sorteios]
 
 
 @st.cache_data(show_spinner=False, max_entries=8)
 def detalhar_sorteio(ancoras: list[list[int]], semente: int, sorteio: tuple[int, ...]) -> dict:
     """Jogos premiados do conjunto inteiro (em cache: mexer nos filtros não refaz a conferência)."""
-    return n.conferir_sorteio(ancoras, semente, sorteio)
+    return obter_catalogo(tuple(tuple(par) for par in ancoras), semente).conferir_sorteio(sorteio)
 
 
 @st.cache_data(show_spinner="Conferindo os lotes escolhidos...", max_entries=2)
 def detalhar_lotes(ancoras: list[list[int]], semente: int, lotes: np.ndarray, sorteios: list[tuple[int, ...]]) -> list[dict]:
-    return n.conferir_lotes(ancoras, semente, lotes, sorteios)
+    cat = obter_catalogo(tuple(tuple(par) for par in ancoras), semente)
+    return n.conferir_lotes(ancoras, semente, lotes, sorteios, catalogo=cat)
 
 
 def tabela_premiados(r: dict) -> pd.DataFrame:
@@ -305,7 +318,7 @@ def limpar_filtros() -> None:
     st.session_state.update(FILTROS_PADRAO)
 
 
-def escolher_filtros() -> dict:
+def escolher_filtros(total_lotes: int) -> dict:
     """Filtros únicos da lista de jogos premiados, valem para todos os sorteios mostrados."""
     for chave, valor in FILTROS_PADRAO.items():
         st.session_state.setdefault(chave, valor)
@@ -322,7 +335,7 @@ def escolher_filtros() -> dict:
     )
     jogo = col_jogo.selectbox("Jogo", ["Todos", *range(1, n.JOGOS_POR_LOTE + 1)], key="filtro_jogo")
     col_limpar.button("Limpar filtros", key="btn_limpar_filtros", on_click=limpar_filtros, width="stretch")
-    lotes, erros = n.interpretar_lotes(texto_lotes)
+    lotes, erros = n.interpretar_lotes(texto_lotes, total_lotes)
     for erro in erros:
         st.error(f"Filtro de lotes ignorado: {erro}")
     filtro = {
@@ -441,7 +454,7 @@ def buscar_concursos_caixa() -> None:
         st.warning(f"{falhas} concurso(s) não puderam ser lidos e ficaram de fora.")
 
 
-def escolher_lotes() -> tuple[np.ndarray | None, bool]:
+def escolher_lotes(total_lotes: int) -> tuple[np.ndarray | None, bool]:
     """Escopo da conferência: (lotes 0-based ou None para o conjunto inteiro, se já pode conferir)."""
     escopo = st.radio(
         "O que conferir",
@@ -457,7 +470,7 @@ def escolher_lotes() -> tuple[np.ndarray | None, bool]:
         key="lotes_jogados",
         help=f"Lotes avulsos separados por vírgula e faixas como 100-200 (até {milhar(n.MAX_LOTES_SELECIONADOS)} lotes).",
     )
-    lotes, erros = n.interpretar_lotes(texto)
+    lotes, erros = n.interpretar_lotes(texto, total_lotes)
     for erro in erros:
         st.error(erro)
     if lotes is None:
@@ -479,7 +492,8 @@ def mostrar_conferidor(res: dict) -> None:
         "independentemente do lote que você estiver visualizando, ou só os lotes que você jogou. "
         f"Limite: {MAX_SORTEIOS} sorteios por vez."
     )
-    lotes, pronto = escolher_lotes()
+    cat = catalogo_de(res)
+    lotes, pronto = escolher_lotes(cat.total_lotes)
     buscar_concursos_caixa()
     with st.form("form_sorteios", border=False):
         texto = st.text_area(
@@ -508,12 +522,12 @@ def mostrar_conferidor(res: dict) -> None:
 
     ancoras, semente = res["ancoras"], res["semente"]
     dezenas = [s for _, s in sorteios]
-    resumos = resumir_sorteios(ancoras, dezenas)
+    resumos = resumir_sorteios(ancoras, semente, dezenas)
     if lotes is None:
         detalhes_lotes = None
         contagens = [r["contagem"] for r in resumos]
         melhores = [r["melhor"] for r in resumos]
-        jogos_conferidos, escopo = n.TOTAL_JOGOS, "do conjunto"
+        jogos_conferidos, escopo = cat.total_jogos, "do conjunto"
     else:
         detalhes_lotes = detalhar_lotes(ancoras, semente, lotes, dezenas)
         contagens = [d["contagem"] for d in detalhes_lotes]
@@ -568,7 +582,9 @@ def mostrar_conferidor(res: dict) -> None:
         )
     st.caption(
         "**Pares na mesma coluna:** duas dezenas sorteadas na mesma coluna nunca aparecem juntas em um jogo. "
-        "Com 0 pares, o conjunto inteiro contém uma Sena; cada par reduz em 1 o melhor resultado possível do conjunto (6 − pares)."
+        "No conjunto completo (antes da exclusão), 0 pares garantem uma Sena e cada par reduz em 1 o melhor resultado "
+        "possível (6 − pares). No catálogo, o jogo premiado pode ter sido excluído; as colunas de faixas e o "
+        "melhor resultado já consideram só os jogos do catálogo."
     )
 
     if total and len(sorteios) > 1:
@@ -596,7 +612,7 @@ def mostrar_conferidor(res: dict) -> None:
     def detalhe_de(i: int) -> dict:
         return detalhar_sorteio(ancoras, semente, sorteios[i][1]) if lotes is None else detalhes_lotes[i]
 
-    filtro = escolher_filtros()
+    filtro = escolher_filtros(cat.total_lotes)
     if len(sorteios) <= MAX_DETALHES:
         for i, (rotulo, sorteio) in enumerate(sorteios):
             mostrar_detalhes(i, rotulo, sorteio, detalhe_de(i), filtro, escopo)
@@ -697,8 +713,9 @@ with st.expander("ℹ️ Como funciona: jogo, lote e conjunto", expanded=True):
         "- **Jogo:** 6 dezenas, uma de cada uma de 6 colunas diferentes, exibidas em ordem crescente "
         "(menor à esquerda), como o resultado do sorteio.\n"
         f"- **Lote:** **{n.JOGOS_POR_LOTE} jogos**. É a unidade que você consulta e joga.\n"
-        f"- **Conjunto:** todos os lotes do apostador: **{milhar(n.TOTAL_LOTES)} lotes**, "
-        f"ou **{milhar(n.TOTAL_JOGOS)} jogos**, sem nenhum jogo repetido. É o que você gera, baixa e confere.\n"
+        "- **Conjunto:** todos os lotes do apostador, sem nenhum jogo repetido. Os jogos que se enquadram nas "
+        f"regras de exclusão (ver abaixo, regras {n.REGRAS_VERSAO}) ficam de fora e os lotes são formados só com os "
+        "jogos aprovados. É o que você gera, baixa e confere.\n"
         "- O **código do apostador** e as **âncoras** definem a ordem dos lotes e dos jogos: "
         "mesmo código e mesmas âncoras sempre geram o mesmo conjunto."
     )
@@ -797,7 +814,7 @@ if padrao_personalizado and botao_original.button(
 st.divider()
 
 if st.button(
-    f"🚀 Gerar o Conjunto ({milhar(n.TOTAL_LOTES)} lotes · {milhar(n.TOTAL_JOGOS)} jogos)",
+    "🚀 Gerar o Conjunto",
     type="primary",
     key="btn_gerar",
     disabled=bool(problemas),
@@ -815,9 +832,11 @@ if st.button(
             "id": n.criar_id_lote(semente),
         }
         st.session_state.pop("arquivo", None)
+        with st.spinner("Formando os lotes só com jogos aprovados. Leva cerca de 20 a 40 segundos..."):
+            cat = catalogo_de(st.session_state["resultado"])
         st.success(
-            f"✅ Conjunto gerado para o apostador {codigo}: {milhar(n.TOTAL_LOTES)} lotes, "
-            f"{milhar(n.TOTAL_JOGOS)} jogos. Use as abas abaixo para ver um lote ou baixar os jogos."
+            f"✅ Conjunto gerado para o apostador {codigo}: {milhar(cat.total_lotes)} lotes, "
+            f"{milhar(cat.total_jogos)} jogos. Use as abas abaixo para ver um lote ou baixar os jogos."
         )
 
 resultado = st.session_state.get("resultado")

@@ -2,6 +2,7 @@
 
 import io
 import random
+import zipfile
 
 import numpy as np
 
@@ -373,53 +374,157 @@ def test_jogos_excluidos_regras():
     assert not n.jogos_excluidos(np.array(aprovados)).any()
     assert n.jogos_excluidos(np.array([5, 6, 7, 8, 19, 60]))  # 4 seguidas, 3 ímpares e 3 pares
     assert n.jogos_excluidos(np.array(excluidos)).shape == (len(excluidos),)
-    # Os motivos mostrados na tela concordam com a máscara, para todos os jogos do teste
-    for jogo in excluidos + aprovados:
-        assert bool(n.motivos_exclusao(jogo)) == bool(n.jogos_excluidos(np.array(jogo)))
-    assert n.motivos_exclusao([22, 23, 24, 25, 26, 27]) == ["6 dezenas consecutivas"]
-    assert n.motivos_exclusao([2, 8, 14, 30, 44, 60]) == ["as 6 dezenas são pares"]
-    assert n.motivos_exclusao([1, 7, 15, 33, 49, 59]) == ["as 6 dezenas são ímpares"]
-    assert n.motivos_exclusao([10, 11, 12, 13, 30, 50]) == ["4 dezenas consecutivas"]
     try:
         n.jogos_excluidos(np.array([1, 2, 3]))
         raise AssertionError("deveria recusar jogo com menos de 6 dezenas")
     except ValueError:
         pass
-
-
-def test_lotes_aprovados_so_tem_jogos_validos():
-    lotes = np.random.default_rng(7).choice(n.TOTAL_LOTES, 20_000, replace=False)
-    _, jogos = n.gerar_lotes(ANC, SEMENTE, lotes)
-    manual = np.array([not any(n.jogos_excluidos(np.array(j)) for j in lote) for lote in jogos[:500]])
-    mascara = n.lotes_aprovados(ANC, SEMENTE, lotes)
-    assert np.array_equal(mascara[:500], manual)
-    assert 0.85 < mascara.mean() < 0.92  # ~88% dos lotes com as âncoras do cliente
-    assert all(bool(n.motivos_exclusao(j)) == bool(e) for j, e in zip(jogos[:300].reshape(-1, 6), n.jogos_excluidos(jogos[:300]).reshape(-1)))
-    assert not n.jogos_excluidos(jogos[mascara]).any()
-    assert n.jogos_excluidos(jogos[~mascara]).any(axis=-1).all()
-
-
-def test_contar_e_listar_lotes_aprovados():
-    total = 3_000
-    esperado = int(n.lotes_aprovados(ANC, SEMENTE, np.arange(total)).sum())
-    assert n.contar_lotes_aprovados(ANC, SEMENTE, total=total, tamanho=700) == esperado
-    primeiros = n.lotes_aprovados_a_partir(ANC, SEMENTE, 10, 40)
-    assert len(primeiros) == 40 and primeiros[0] >= 10
-    assert np.all(np.diff(primeiros) > 0)
-    assert n.lotes_aprovados(ANC, SEMENTE, primeiros).all()
-    # Nenhum lote aprovado foi pulado entre o início e o último devolvido
-    intervalo = np.arange(10, primeiros[-1] + 1)
-    assert np.array_equal(intervalo[n.lotes_aprovados(ANC, SEMENTE, intervalo)], primeiros)
-    assert len(n.lotes_aprovados_a_partir(ANC, SEMENTE, n.TOTAL_LOTES - 3, 50)) <= 3
+    # Motivos: pares, ímpares, consecutivas (nunca dois ao mesmo tempo: 4 consecutivas misturam paridades)
+    motivos = n.motivos_exclusao(np.array(excluidos))
+    assert motivos.shape == (3, len(excluidos))
+    assert motivos.sum(axis=0).max() == 1
+    assert motivos[:, 4].tolist() == [True, False, False]
+    assert motivos[:, 5].tolist() == [False, True, False]
+    assert motivos[:, 1].tolist() == [False, False, True]
+    assert n.MOTIVOS_EXCLUSAO == ("todas pares", "todas ímpares", "4 ou mais consecutivas")
 
 
 def test_regras_nao_mudam_a_geracao():
-    # O filtro só seleciona: os jogos e a numeração dos lotes continuam os mesmos
+    # As regras só decidem o que entra no catálogo: o conjunto completo e a sua numeração não mudam
     _, antes = n.gerar_lotes(ANC, SEMENTE, np.array([0, 1]))
-    n.lotes_aprovados(ANC, SEMENTE, np.arange(100))
+    n.jogos_excluidos(antes)
     _, depois = n.gerar_lotes(ANC, SEMENTE, np.array([0, 1]))
     assert np.array_equal(antes, depois)
     assert n.REGRAS_VERSAO == "v1"
+
+
+_CATALOGO = []
+
+
+def catalogo():
+    """Catálogo do SEMENTE de teste, montado uma vez (cerca de 20 segundos)."""
+    if not _CATALOGO:
+        _CATALOGO.append(n.criar_catalogo(n.PADRAO_ANCORAS, SEMENTE))
+    return _CATALOGO[0]
+
+
+def test_catalogo_totais():
+    c = catalogo()
+    # Os totais não dependem da semente: só das âncoras do cliente e das regras v1
+    assert c.excluidos_por_motivo == {"todas pares": 439_019, "todas ímpares": 439_019, "4 ou mais consecutivas": 71_350}
+    assert c.total_excluidos == 949_388
+    assert c.total_aprovados == n.TOTAL_JOGOS - 949_388 == 37_052_212
+    assert c.total_lotes == 7_410_442 and c.jogos_descartados == 2
+    assert c.total_jogos == c.total_lotes * 5
+    assert (c.total_arquivos, c.total_zips) == (39, 8)
+    assert c.jogos_por_dezena.sum() == 6 * c.total_jogos
+    assert 0.97 * n.JOGOS_POR_DEZENA < c.jogos_por_dezena[1:].min() <= c.jogos_por_dezena[1:].max() <= n.JOGOS_POR_DEZENA
+
+
+def test_catalogo_forma_lotes_so_com_jogos_aprovados():
+    c = catalogo()
+    # Os lotes são os jogos aprovados do conjunto completo, na mesma ordem, de 5 em 5
+    _, bruto = n.gerar_lotes(ANC, SEMENTE, np.arange(2_500))
+    bruto = bruto.reshape(-1, 6)
+    esperado = bruto[~n.jogos_excluidos(bruto)][:10_000].reshape(2_000, 5, 6)
+    assert np.array_equal(c.gerar_lotes(np.arange(2_000))[1], esperado)
+
+    # Em qualquer ponto do catálogo: nenhum jogo excluído, dezenas crescentes, sem repetir jogo
+    escolhidos = np.sort(np.random.default_rng(3).choice(c.total_lotes, 5_000, replace=False))
+    colunas, jogos = c.gerar_lotes(escolhidos)
+    assert jogos.shape == (5_000, 5, 6) and colunas.shape == jogos.shape
+    assert not n.jogos_excluidos(jogos).any()
+    assert (np.diff(jogos.astype(int), axis=-1) > 0).all()
+    assert len({tuple(j) for j in jogos.reshape(-1, 6)}) == 5_000 * 5
+    # A coluna de origem de cada dezena continua valendo
+    for lote in (0, 1, 1_234):
+        cols_lote, jogos_lote = c.gerar_lotes(np.array([lote]))
+        assert all(int(d) in ANC[col] for jogo, cs in zip(jogos_lote[0], cols_lote[0]) for d, col in zip(jogo, cs))
+    # Ordem de lotes e jogos estável (a numeração só depende da semente, das âncoras e das regras)
+    assert np.array_equal(c.gerar_lotes(escolhidos[::-1])[1], jogos[::-1])
+
+
+def test_catalogo_posto_e_posicoes():
+    c = catalogo()
+    rng = np.random.default_rng(5)
+    pos = rng.integers(0, n.TOTAL_JOGOS, 60_000)
+    ok = c.aprovado(pos)
+    _, jogos = n.gerar_lotes(ANC, SEMENTE, pos // 5)
+    reais = jogos[np.arange(len(pos)), pos % 5]
+    assert np.array_equal(ok, ~n.jogos_excluidos(reais))
+    aprovadas = pos[ok]
+    assert np.array_equal(c.posicoes(c.posto(aprovadas)), aprovadas)
+    postos = rng.integers(0, c.total_aprovados, 60_000)
+    assert np.array_equal(c.posto(c.posicoes(postos)), postos)
+    assert c.aprovado(c.posicoes(postos)).all()
+    # Extremos
+    assert c.posto(c.posicoes(np.array([0, c.total_aprovados - 1]))).tolist() == [0, c.total_aprovados - 1]
+    for invalido in (-1, c.total_aprovados):
+        try:
+            c.posicoes(np.array([invalido]))
+            raise AssertionError("posto fora do catálogo")
+        except ValueError:
+            pass
+    for invalido in (-1, c.total_lotes):
+        try:
+            c.gerar_lotes(np.array([invalido]))
+            raise AssertionError("lote fora do catálogo")
+        except ValueError:
+            pass
+    assert c.gerar_lotes(np.array([c.total_lotes - 1]))[1].shape == (1, 5, 6)
+
+
+def test_catalogo_conferidor_contra_o_conjunto_completo():
+    c = catalogo()
+    rng = random.Random(11)
+    janela = np.arange(150_000)
+    for _ in range(3):
+        sorteio = tuple(sorted(rng.sample(range(1, 61), 6)))
+        r = c.conferir_sorteio(sorteio)
+        assert c.resumir_sorteio(sorteio) == {k: r[k] for k in ("contagem", "melhor", "cobertura")}
+        # Só jogos do catálogo: cada premiado existe no lote e posição indicados, com os acertos informados
+        assert r["blocos"].max(initial=1) <= c.total_lotes
+        amostra = slice(0, 300)
+        _, jogos = c.gerar_lotes(r["blocos"][amostra] - 1)
+        achados = jogos[np.arange(len(jogos)), r["jogos"][amostra] - 1]
+        assert np.array_equal(achados, r["dezenas"][amostra])
+        assert np.array_equal(np.isin(achados, sorteio).sum(axis=1), r["acertos"][amostra])
+        # Nada falta: os lotes de uma janela, conferidos jogo a jogo, dão os mesmos premiados
+        recorte = n.conferir_lotes(n.PADRAO_ANCORAS, SEMENTE, janela, [sorteio], catalogo=c)[0]
+        dentro = r["blocos"] <= len(janela)
+        assert recorte["contagem"] == {m: int((r["acertos"][dentro] == m).sum()) for m in (4, 5, 6)}
+        assert np.array_equal(recorte["blocos"], r["blocos"][dentro])
+        assert np.array_equal(recorte["jogos"], r["jogos"][dentro])
+        assert recorte["jogos_conferidos"] == len(janela) * 5
+        assert r["melhor"] == (int(r["acertos"].max()) if len(r["acertos"]) else min(r["melhor"], 3))
+    # Sorteio que o conjunto completo premia com Sena só entra se o jogo for aprovado: confere o próprio jogo
+    sena = tuple(int(d) for d in c.gerar_lotes(np.array([4_242]))[1][0, 2])
+    r = c.conferir_sorteio(sena)
+    assert r["contagem"][6] == 1 and r["blocos"][0] == 4_243 and r["jogos"][0] == 3
+    # Um sorteio igual a um jogo excluído não gera Sena no catálogo
+    excluido = (2, 8, 14, 30, 44, 60)
+    assert c.conferir_sorteio(excluido)["contagem"][6] == 0
+    assert n.conferir_sorteio(n.PADRAO_ANCORAS, SEMENTE, excluido)["contagem"][6] in (0, 1)
+
+
+def test_catalogo_csv_e_zip():
+    c = catalogo()
+    assert c.intervalo_do_arquivo(1) == (0, 192_000)
+    assert c.intervalo_do_arquivo(39) == (38 * 192_000, c.total_lotes)
+    linhas = c.gerar_csv(39).decode().splitlines()
+    ini, fim = c.intervalo_do_arquivo(39)
+    assert len(linhas) == 1 + (fim - ini) * 5
+    ultimo = c.gerar_lotes(np.array([c.total_lotes - 1]))[1][0]
+    assert linhas[-1] == f"{c.total_lotes:07d};5;" + ";".join(f"{d:02d}" for d in ultimo[4])
+    primeiro = c.gerar_lotes(np.array([0]))[1][0]
+    assert c.gerar_csv(1).decode().splitlines()[1] == "0000001;1;" + ";".join(f"{d:02d}" for d in primeiro[0])
+    assert list(c.arquivos_do_zip(8)) == [36, 37, 38, 39]
+    chamadas = []
+    dados = c.gerar_zip(8, "x", lambda f, t: chamadas.append((f, t)))
+    assert chamadas == [(1, 4), (2, 4), (3, 4), (4, 4)]
+    with zipfile.ZipFile(io.BytesIO(dados)) as zf:
+        assert zf.namelist() == [f"x_parte{i}de39.csv" for i in (36, 37, 38, 39)]
+        assert zf.read("x_parte39de39.csv") == c.gerar_csv(39)
 
 
 if __name__ == "__main__":
