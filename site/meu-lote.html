@@ -495,7 +495,8 @@
   };
   const BTN_LIVRE_OFF = 'bg-slate-800 text-slate-200 hover:bg-slate-700';
   const BTN_LIVRE_ON = 'bg-emerald-500 text-white';
-  $('livre-grade').innerHTML = Array.from({ length: 60 }, (_, i) => i + 1).map((n) =>
+  // Como o volante: 10 linhas × 6 colunas, com a coluna 1 de 01 a 10, a coluna 2 de 11 a 20 e assim por diante
+  $('livre-grade').innerHTML = Array.from({ length: 60 }, (_, i) => (i % 6) * 10 + Math.floor(i / 6) + 1).map((n) =>
     `<button type="button" data-d="${n}" aria-pressed="false" class="flex aspect-square min-h-[40px] items-center justify-center rounded-full text-sm font-bold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-400 ${BTN_LIVRE_OFF}">${pad(n)}</button>`).join('');
 
   function atualizarLivre() {
