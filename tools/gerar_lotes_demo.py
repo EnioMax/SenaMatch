@@ -12,10 +12,12 @@ import random
 import sys
 from pathlib import Path
 
+import numpy as np
+
 RAIZ = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(RAIZ / "streamlit"))
 
-import nucleo as n  # noqa: E402
+import nucleo as n
 
 SEGREDO_DEMO = "senamatch-demo-publico-nao-usar-em-producao"
 CODIGO_DEMO = "demo"
@@ -26,15 +28,21 @@ SAIDA = RAIZ / "site" / "data" / "lotes_demo.js"
 def main() -> None:
     ancoras = [list(c) for c in n.PADRAO_ANCORAS]
     semente = n.criar_semente(SEGREDO_DEMO, CODIGO_DEMO, ancoras)
-    # Números de lote espalhados por todo o universo (1..7.600.320), com sorteio reproduzível
-    numeros = sorted(random.Random(2026).sample(range(1, n.TOTAL_LOTES + 1), QUANTIDADE))
-    _, jogos = n.gerar_lotes(n.ancoras_para_array(ancoras), semente, [x - 1 for x in numeros])
+    matriz = n.ancoras_para_array(ancoras)
+    # Números de lote espalhados por todo o universo (1..7.600.320), com sorteio reproduzível,
+    # só entre os lotes aprovados pelas regras de venda (n.REGRAS_VERSAO)
+    candidatos = random.Random(2026).sample(range(1, n.TOTAL_LOTES + 1), QUANTIDADE * 3)
+    aprovados = n.lotes_aprovados(matriz, semente, np.array([x - 1 for x in candidatos]))
+    numeros = sorted(x for x, ok in zip(candidatos, aprovados, strict=True) if ok)[:QUANTIDADE]
+    assert len(numeros) == QUANTIDADE
+    _, jogos = n.gerar_lotes(matriz, semente, [x - 1 for x in numeros])
 
     lotes = []
     for numero, lote in zip(numeros, jogos.tolist(), strict=True):
         assert len(lote) == n.JOGOS_POR_LOTE
         assert all(len(set(j)) == 6 and j == sorted(j) for j in lote)
         assert len({tuple(j) for j in lote}) == n.JOGOS_POR_LOTE
+        assert not n.jogos_excluidos(np.array(lote)).any()
         lotes.append({"numero": numero, "jogos": lote})
 
     dados = {

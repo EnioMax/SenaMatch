@@ -44,11 +44,14 @@ Legenda: `[x]` feito · `[ ]` a fazer · **(cliente)** depende de decisão ou ap
 - [ ] **(você)** Registrar o domínio e criar conta no serviço de e-mail (Resend ou Brevo)
 - [ ] Confirmação por e-mail: token por lead (KV), e-mail de boas-vindas e liberação do lote em `/meu-lote?t=...`
 
+- [x] Regras de seleção v1 (pares/ímpares e 4+ seguidas) no núcleo, no app e no catálogo demo
+- [ ] **(cliente)** Confirmar as regras v1 e se quer outros critérios (soma, final das dezenas)
+
 ## Fase 3 — Venda de verdade (backend)
 
 - [ ] **(cliente)** Escolher o gateway de pagamento (Mercado Pago, Asaas ou Stripe) e abrir a conta
 - [ ] Definir o **código global único** e as âncoras de venda, e guardar o `SENAMATCH_SECRET` em gerenciador de segredos (nunca no repositório)
-- [ ] Backend FastAPI reaproveitando `nucleo.py`: alocação aleatória e atômica de lotes, sem repetir (`UNIQUE(numero_lote)`)
+- [ ] Backend FastAPI reaproveitando `nucleo.py`: alocação aleatória e atômica de lotes **aprovados** (`lotes_aprovados`), sem repetir (`UNIQUE(numero_lote)`), registrando `REGRAS_VERSAO`
 - [ ] Banco de dados: clientes, pedidos, lotes vendidos e jogos apostados (modelo na seção 5 das regras)
 - [ ] Checkout Pix e cartão, com webhook assinado e idempotente
 - [ ] Acesso por link mágico por e-mail (sem senha)

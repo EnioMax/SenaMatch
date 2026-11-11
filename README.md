@@ -22,6 +22,10 @@ O repositório tem duas partes: o programa que gera os jogos e o site que vende 
 - O painel do gestor guarda dados no `localStorage` do navegador, sem autenticação: não use com dados reais.
 - Os resultados da página do lote são **oficiais**, vindos da API da Caixa por `/api/sorteios` (com cache de 10 min). O painel ainda usa concursos fictícios.
 
+### Seleção para a venda (regras v1)
+
+O cliente pediu para enxugar o catálogo. O núcleo ([`streamlit/nucleo.py`](streamlit/nucleo.py)) mantém a numeração e os jogos; a seleção só escolhe **quais lotes vender**. Um lote é aprovado quando nenhum dos 5 jogos tem as 6 dezenas pares, as 6 ímpares ou 4 ou mais dezenas consecutivas. Funções: `jogos_excluidos`, `lotes_aprovados`, `contar_lotes_aprovados` e `lotes_aprovados_a_partir`; versão em `REGRAS_VERSAO`. Com as âncoras do cliente, cerca de 88,1% dos lotes (6,70 milhões) são aprovados. No app, o painel **Seleção para a venda** conta os lotes e a lista de lotes marca cada um como aprovado ou fora da venda. O catálogo demo do site só usa lotes aprovados. Isso não aumenta a chance de ganhar.
+
 ### Catálogo filtrado experimental
 
 [`streamlit/catalogo_filtrado.py`](streamlit/catalogo_filtrado.py) permite testar, isoladamente, a reorganização de jogos em lotes de cinco após excluir jogos com cinco ou mais dezenas da mesma paridade, quatro ou mais consecutivas ou progressão aritmética. `criar_catalogo(ancoras, semente)` percorre o catálogo original e constrói um índice em memória; `gerar_lotes` usa índices de lotes experimentais começando em zero. Se houver jogos aprovados sobrando, a criação falha explicitamente.

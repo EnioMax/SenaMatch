@@ -353,6 +353,67 @@ def test_golden_saida_estavel():
     assert jogos[2, 4].tolist() == [4, 10, 13, 33, 36, 53]
 
 
+def test_jogos_excluidos_regras():
+    excluidos = [
+        [1, 2, 3, 4, 5, 6],  # sequência de 6
+        [22, 23, 24, 25, 26, 27],
+        [10, 11, 12, 13, 30, 50],  # 4 seguidas
+        [3, 20, 21, 22, 23, 59],  # 4 seguidas no meio
+        [2, 8, 14, 30, 44, 60],  # todos pares
+        [1, 7, 15, 33, 49, 59],  # todos ímpares
+        [60, 2, 30, 8, 44, 14],  # fora de ordem
+    ]
+    aprovados = [
+        [10, 11, 12, 30, 41, 55],  # só 3 seguidas
+        [1, 2, 3, 20, 33, 58],
+        [2, 8, 14, 30, 44, 59],  # 5 pares e 1 ímpar
+        [1, 8, 15, 30, 45, 60],
+    ]
+    assert n.jogos_excluidos(np.array(excluidos)).all()
+    assert not n.jogos_excluidos(np.array(aprovados)).any()
+    assert n.jogos_excluidos(np.array([5, 6, 7, 8, 19, 60]))  # 4 seguidas, 3 ímpares e 3 pares
+    assert n.jogos_excluidos(np.array(excluidos)).shape == (len(excluidos),)
+    try:
+        n.jogos_excluidos(np.array([1, 2, 3]))
+        raise AssertionError("deveria recusar jogo com menos de 6 dezenas")
+    except ValueError:
+        pass
+
+
+def test_lotes_aprovados_so_tem_jogos_validos():
+    lotes = np.random.default_rng(7).choice(n.TOTAL_LOTES, 20_000, replace=False)
+    _, jogos = n.gerar_lotes(ANC, SEMENTE, lotes)
+    manual = np.array([not any(n.jogos_excluidos(np.array(j)) for j in lote) for lote in jogos[:500]])
+    mascara = n.lotes_aprovados(ANC, SEMENTE, lotes)
+    assert np.array_equal(mascara[:500], manual)
+    assert 0.85 < mascara.mean() < 0.92  # ~88% dos lotes com as âncoras do cliente
+    assert not n.jogos_excluidos(jogos[mascara]).any()
+    assert n.jogos_excluidos(jogos[~mascara]).any(axis=-1).all()
+
+
+def test_contar_e_listar_lotes_aprovados():
+    total = 3_000
+    esperado = int(n.lotes_aprovados(ANC, SEMENTE, np.arange(total)).sum())
+    assert n.contar_lotes_aprovados(ANC, SEMENTE, total=total, tamanho=700) == esperado
+    primeiros = n.lotes_aprovados_a_partir(ANC, SEMENTE, 10, 40)
+    assert len(primeiros) == 40 and primeiros[0] >= 10
+    assert np.all(np.diff(primeiros) > 0)
+    assert n.lotes_aprovados(ANC, SEMENTE, primeiros).all()
+    # Nenhum lote aprovado foi pulado entre o início e o último devolvido
+    intervalo = np.arange(10, primeiros[-1] + 1)
+    assert np.array_equal(intervalo[n.lotes_aprovados(ANC, SEMENTE, intervalo)], primeiros)
+    assert len(n.lotes_aprovados_a_partir(ANC, SEMENTE, n.TOTAL_LOTES - 3, 50)) <= 3
+
+
+def test_regras_nao_mudam_a_geracao():
+    # O filtro só seleciona: os jogos e a numeração dos lotes continuam os mesmos
+    _, antes = n.gerar_lotes(ANC, SEMENTE, np.array([0, 1]))
+    n.lotes_aprovados(ANC, SEMENTE, np.arange(100))
+    _, depois = n.gerar_lotes(ANC, SEMENTE, np.array([0, 1]))
+    assert np.array_equal(antes, depois)
+    assert n.REGRAS_VERSAO == "v1"
+
+
 if __name__ == "__main__":
     for nome, fn in sorted(globals().items()):
         if nome.startswith("test_"):

@@ -257,6 +257,69 @@ def gerar_lotes(ancoras: np.ndarray, semente: int, lotes: np.ndarray) -> tuple[n
 
 
 # ----------------------------------------------------------------------
+# Seleção para a venda (regras do cliente)
+#
+# A geração acima não muda: a numeração dos lotes continua a mesma. A regra só decide quais lotes
+# podem ser vendidos: um lote é APROVADO quando nenhum dos seus 5 jogos é excluído.
+# Excluir padrões não aumenta a chance de uma combinação (todas valem 1 em 50.063.860).
+# ----------------------------------------------------------------------
+REGRAS_VERSAO = "v1"  # registre com qual versão cada lote foi vendido
+MAX_SEGUIDAS = 3  # exclui jogos com 4 ou mais dezenas consecutivas (ex.: 22-23-24-25)
+
+
+def jogos_excluidos(jogos: np.ndarray) -> np.ndarray:
+    """Máscara dos jogos excluídos (jogos: (..., 6), com dezenas de 1 a 60, em qualquer ordem).
+
+    Regras da versão v1: (1) as 6 dezenas pares ou as 6 ímpares; (2) mais de MAX_SEGUIDAS dezenas
+    consecutivas (inclui 01-02-03-04-05-06 e 22-23-24-25-26-27).
+    """
+    ordenados = np.sort(np.asarray(jogos, dtype=np.int16), axis=-1)
+    if ordenados.shape[-1] != COLUNAS_POR_BLOCO:
+        raise ValueError("Cada jogo deve ter 6 dezenas na última dimensão.")
+    pares = (ordenados % 2 == 0).sum(axis=-1)
+    mesma_paridade = (pares == 0) | (pares == COLUNAS_POR_BLOCO)
+    seguidas = np.diff(ordenados, axis=-1) == 1
+    janela = MAX_SEGUIDAS  # 4 consecutivas = 3 diferenças iguais a 1 em sequência
+    sequencia = np.zeros(mesma_paridade.shape, dtype=bool)
+    for i in range(seguidas.shape[-1] - janela + 1):
+        sequencia |= seguidas[..., i : i + janela].all(axis=-1)
+    return mesma_paridade | sequencia
+
+
+def lotes_aprovados(ancoras: np.ndarray, semente: int, lotes: np.ndarray) -> np.ndarray:
+    """Máscara dos lotes (0-based) aprovados: nenhum dos 5 jogos é excluído."""
+    _, jogos = gerar_lotes(ancoras, semente, lotes)
+    return ~jogos_excluidos(jogos).any(axis=-1)
+
+
+def contar_lotes_aprovados(
+    ancoras: np.ndarray, semente: int, total: int = TOTAL_LOTES, tamanho: int = 100_000, progresso=None
+) -> int:
+    """Quantos dos primeiros `total` lotes são aprovados (o conjunto todo leva alguns minutos)."""
+    aprovados = 0
+    for inicio in range(0, total, tamanho):
+        lotes = np.arange(inicio, min(inicio + tamanho, total))
+        aprovados += int(lotes_aprovados(ancoras, semente, lotes).sum())
+        if progresso:
+            progresso(min(inicio + tamanho, total), total)
+    return aprovados
+
+
+def lotes_aprovados_a_partir(ancoras: np.ndarray, semente: int, inicio: int, quantidade: int) -> np.ndarray:
+    """Os próximos `quantidade` lotes aprovados (0-based), a partir de `inicio` (0-based)."""
+    achados: list[np.ndarray] = []
+    faltam = quantidade
+    passo = max(quantidade * 2, 64)
+    while faltam > 0 and inicio < TOTAL_LOTES:
+        lotes = np.arange(inicio, min(inicio + passo, TOTAL_LOTES))
+        bons = lotes[lotes_aprovados(ancoras, semente, lotes)][:faltam]
+        achados.append(bons)
+        faltam -= len(bons)
+        inicio += passo
+    return np.concatenate(achados) if achados else np.empty(0, dtype=np.int64)
+
+
+# ----------------------------------------------------------------------
 # Arquivos CSV
 # ----------------------------------------------------------------------
 def intervalo_do_arquivo(numero: int) -> tuple[int, int]:

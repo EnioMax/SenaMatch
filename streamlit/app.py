@@ -126,6 +126,35 @@ def reais(valor: float) -> str:
     return "R$ " + f"{valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
 
+@st.cache_data(show_spinner=False, max_entries=4)
+def contar_aprovados(ancoras: list[list[int]], semente: int) -> int:
+    return n.contar_lotes_aprovados(n.ancoras_para_array(ancoras), semente)
+
+
+def mostrar_selecao_venda(ancoras: np.ndarray, semente: int, id_conjunto: str) -> None:
+    """Regras do cliente: quais lotes podem ser vendidos. A numeração e os jogos não mudam."""
+    with st.expander(f"✅ Seleção para a venda (regras {n.REGRAS_VERSAO})", expanded=False):
+        st.write(
+            "Um lote é **aprovado** quando nenhum dos seus 5 jogos tem **as 6 dezenas pares**, "
+            f"**as 6 ímpares** ou **{n.MAX_SEGUIDAS + 1} ou mais dezenas consecutivas** (ex.: 22-23-24-25). "
+            "Lotes com algum jogo assim ficam fora da venda."
+        )
+        st.caption(
+            "A numeração e os jogos do conjunto não mudam; a regra só escolhe quais lotes vender. "
+            "Excluir padrões não aumenta a chance de uma combinação: todas valem 1 em 50.063.860."
+        )
+        if st.button("Contar lotes aprovados", key="btn_contar_aprovados", help="Leva cerca de 20 a 40 segundos."):
+            st.session_state["aprovados_id"] = id_conjunto
+        if st.session_state.get("aprovados_id") == id_conjunto:
+            with st.spinner("Verificando os lotes do conjunto..."):
+                lista = [[int(d) for d in par] for par in ancoras]
+                aprovados = contar_aprovados(lista, semente)
+            a, b, c = st.columns(3)
+            a.metric("Lotes aprovados", milhar(aprovados))
+            b.metric("Fora da venda", milhar(n.TOTAL_LOTES - aprovados))
+            c.metric("Aprovados", f"{100 * aprovados / n.TOTAL_LOTES:.1f}%".replace(".", ","))
+
+
 def mostrar_resultado(res: dict) -> None:
     ancoras = n.ancoras_para_array(res["ancoras"])
 
@@ -135,6 +164,8 @@ def mostrar_resultado(res: dict) -> None:
     c3.metric("Jogos no conjunto", milhar(n.TOTAL_JOGOS), help="Todos os lotes juntos.")
     c4.metric("Jogos por dezena", milhar(n.JOGOS_POR_DEZENA), help="Quantos jogos do conjunto contêm cada dezena (igual para todas).")
     c5.metric("ID do conjunto", res["id"], help="Identifica este conjunto: depende do código do apostador e das âncoras.")
+
+    mostrar_selecao_venda(ancoras, res["semente"], res["id"])
 
     aba_bloco, aba_arquivos = st.tabs(["🔎 Ver os jogos de um lote", "⬇️ Baixar os jogos do conjunto"])
 
@@ -152,6 +183,7 @@ def mostrar_resultado(res: dict) -> None:
         inicio = int(inicio)
         lotes_tela = np.arange(inicio - 1, inicio - 1 + LOTES_NA_TELA)
         colunas, jogos = n.gerar_lotes(ancoras, res["semente"], lotes_tela)
+        excluidos_tela = n.jogos_excluidos(jogos)  # (lotes, 5)
         st.markdown(
             f"**Lotes {inicio:07d} a {inicio + LOTES_NA_TELA - 1:07d}**: {LOTES_NA_TELA} lotes de {n.JOGOS_POR_LOTE} jogos"
         )
@@ -163,7 +195,10 @@ def mostrar_resultado(res: dict) -> None:
         for linha in range(0, LOTES_NA_TELA, COLUNAS_NA_TELA):
             for coluna_st, i in zip(st.columns(COLUNAS_NA_TELA), range(linha, linha + COLUNAS_NA_TELA)):
                 with coluna_st:
-                    st.markdown(f"**Lote {inicio + i:07d}**")
+                    if excluidos_tela[i].any():
+                        st.markdown(f"**Lote {inicio + i:07d}** · ⛔ fora da venda")
+                    else:
+                        st.markdown(f"**Lote {inicio + i:07d}** · ✅ aprovado")
                     st.markdown(html_bloco(colunas[i], jogos[i]), unsafe_allow_html=True)
 
     with aba_arquivos:
