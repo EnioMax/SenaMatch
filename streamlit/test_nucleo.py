@@ -360,15 +360,18 @@ def test_jogos_excluidos_regras():
         [22, 23, 24, 25, 26, 27],
         [10, 11, 12, 13, 30, 50],  # 4 seguidas
         [3, 20, 21, 22, 23, 59],  # 4 seguidas no meio
+        [10, 11, 12, 30, 41, 55],  # 3 seguidas
+        [1, 2, 3, 20, 33, 58],  # 3 seguidas no início
+        [1, 3, 5, 7, 38, 49],  # 4 dezenas na faixa 01-10
         [2, 8, 14, 30, 44, 60],  # todos pares
         [1, 7, 15, 33, 49, 59],  # todos ímpares
         [60, 2, 30, 8, 44, 14],  # fora de ordem
     ]
     aprovados = [
-        [10, 11, 12, 30, 41, 55],  # só 3 seguidas
-        [1, 2, 3, 20, 33, 58],
+        [10, 11, 30, 31, 41, 55],  # só 2 seguidas (duas vezes)
+        [1, 2, 20, 33, 58, 59],
         [2, 8, 14, 30, 44, 59],  # 5 pares e 1 ímpar
-        [1, 8, 15, 30, 45, 60],
+        [1, 4, 8, 20, 33, 58],  # exatamente 3 na faixa 01-10
     ]
     assert n.jogos_excluidos(np.array(excluidos)).all()
     assert not n.jogos_excluidos(np.array(aprovados)).any()
@@ -379,14 +382,19 @@ def test_jogos_excluidos_regras():
         raise AssertionError("deveria recusar jogo com menos de 6 dezenas")
     except ValueError:
         pass
-    # Motivos: pares, ímpares, consecutivas (nunca dois ao mesmo tempo: 4 consecutivas misturam paridades)
+    # As regras podem se sobrepor: 6 consecutivas também excedem o limite por faixa.
     motivos = n.motivos_exclusao(np.array(excluidos))
-    assert motivos.shape == (3, len(excluidos))
-    assert motivos.sum(axis=0).max() == 1
-    assert motivos[:, 4].tolist() == [True, False, False]
-    assert motivos[:, 5].tolist() == [False, True, False]
-    assert motivos[:, 1].tolist() == [False, False, True]
-    assert n.MOTIVOS_EXCLUSAO == ("todas pares", "todas ímpares", "4 ou mais consecutivas")
+    assert motivos.shape == (4, len(excluidos))
+    assert motivos[:, 7].tolist() == [True, False, False, False]
+    assert motivos[:, 8].tolist() == [False, True, False, False]
+    assert motivos[:, 1].tolist() == [False, False, True, True]
+    assert motivos[:, 6].tolist() == [False, False, False, True]
+    assert n.MOTIVOS_EXCLUSAO == (
+        "todas pares",
+        "todas ímpares",
+        "3 ou mais consecutivas",
+        "mais de 3 na mesma faixa de dezena",
+    )
 
 
 def test_regras_nao_mudam_a_geracao():
@@ -395,7 +403,7 @@ def test_regras_nao_mudam_a_geracao():
     n.jogos_excluidos(antes)
     _, depois = n.gerar_lotes(ANC, SEMENTE, np.array([0, 1]))
     assert np.array_equal(antes, depois)
-    assert n.REGRAS_VERSAO == "v1"
+    assert n.REGRAS_VERSAO == "v3"
 
 
 _CATALOGO = []
@@ -410,15 +418,26 @@ def catalogo():
 
 def test_catalogo_totais():
     c = catalogo()
-    # Os totais não dependem da semente: só das âncoras do cliente e das regras v1
-    assert c.excluidos_por_motivo == {"todas pares": 439_019, "todas ímpares": 439_019, "4 ou mais consecutivas": 71_350}
-    assert c.total_excluidos == 949_388
-    assert c.total_aprovados == n.TOTAL_JOGOS - 949_388 == 37_052_212
-    assert c.total_lotes == 7_410_442 and c.jogos_descartados == 2
+    # Os totais não dependem da semente: só das âncoras do cliente e das regras v3.
+    # Contagens por motivo podem se sobrepor.
+    assert c.excluidos_por_motivo == {
+        "todas pares": 439_019,
+        "todas ímpares": 439_019,
+        "3 ou mais consecutivas": 1_281_857,
+        "mais de 3 na mesma faixa de dezena": 1_270_500,
+    }
+    assert c.total_excluidos == 3_085_625
+    assert c.total_aprovados == n.TOTAL_JOGOS - 3_085_625 == 34_915_975
+    assert c.total_lotes == 6_983_195 and c.jogos_descartados == 0
     assert c.total_jogos == c.total_lotes * 5
-    assert (c.total_arquivos, c.total_zips) == (39, 8)
+    assert (c.total_arquivos, c.total_zips) == (37, 8)
     assert c.jogos_por_dezena.sum() == 6 * c.total_jogos
-    assert 0.97 * n.JOGOS_POR_DEZENA < c.jogos_por_dezena[1:].min() <= c.jogos_por_dezena[1:].max() <= n.JOGOS_POR_DEZENA
+    assert (
+        0.91 * n.JOGOS_POR_DEZENA
+        < c.jogos_por_dezena[1:].min()
+        <= c.jogos_por_dezena[1:].max()
+        <= n.JOGOS_POR_DEZENA
+    )
 
 
 def test_catalogo_forma_lotes_so_com_jogos_aprovados():
@@ -510,21 +529,21 @@ def test_catalogo_conferidor_contra_o_conjunto_completo():
 def test_catalogo_csv_e_zip():
     c = catalogo()
     assert c.intervalo_do_arquivo(1) == (0, 192_000)
-    assert c.intervalo_do_arquivo(39) == (38 * 192_000, c.total_lotes)
-    linhas = c.gerar_csv(39).decode().splitlines()
-    ini, fim = c.intervalo_do_arquivo(39)
+    assert c.intervalo_do_arquivo(37) == (36 * 192_000, c.total_lotes)
+    linhas = c.gerar_csv(37).decode().splitlines()
+    ini, fim = c.intervalo_do_arquivo(37)
     assert len(linhas) == 1 + (fim - ini) * 5
     ultimo = c.gerar_lotes(np.array([c.total_lotes - 1]))[1][0]
     assert linhas[-1] == f"{c.total_lotes:07d};5;" + ";".join(f"{d:02d}" for d in ultimo[4])
     primeiro = c.gerar_lotes(np.array([0]))[1][0]
     assert c.gerar_csv(1).decode().splitlines()[1] == "0000001;1;" + ";".join(f"{d:02d}" for d in primeiro[0])
-    assert list(c.arquivos_do_zip(8)) == [36, 37, 38, 39]
+    assert list(c.arquivos_do_zip(8)) == [36, 37]
     chamadas = []
     dados = c.gerar_zip(8, "x", lambda f, t: chamadas.append((f, t)))
-    assert chamadas == [(1, 4), (2, 4), (3, 4), (4, 4)]
+    assert chamadas == [(1, 2), (2, 2)]
     with zipfile.ZipFile(io.BytesIO(dados)) as zf:
-        assert zf.namelist() == [f"x_parte{i}de39.csv" for i in (36, 37, 38, 39)]
-        assert zf.read("x_parte39de39.csv") == c.gerar_csv(39)
+        assert zf.namelist() == [f"x_parte{i}de37.csv" for i in (36, 37)]
+        assert zf.read("x_parte37de37.csv") == c.gerar_csv(37)
 
 
 if __name__ == "__main__":

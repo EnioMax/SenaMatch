@@ -12,8 +12,8 @@ Regra do conjunto:
     e os outros 4 são herdados de grupos diferentes. Nenhum jogo se repete. A regra é fixa (sem sorteio).
   - Cada jogo mostra as 6 dezenas em ordem crescente (menor à esquerda), como o resultado do sorteio.
 
-Catálogo de venda: os jogos que se enquadram nas regras de exclusão (6 pares, 6 ímpares ou 4+ consecutivas)
-ficam de fora e os lotes de 5 são formados só com os jogos aprovados (nucleo.Catalogo), com numeração própria.
+Catálogo de venda: jogos com 6 pares, 6 ímpares, 3+ consecutivas ou mais de 3 dezenas na mesma faixa de dezena
+ficam de fora. Os lotes de 5 são formados só com os jogos aprovados (nucleo.Catalogo), com numeração própria.
 
 O código do apostador e o segredo do servidor definem a ORDEM dos blocos e dos jogos
 (HMAC). Mesmo código + mesmas âncoras -> sempre o mesmo conjunto.
@@ -139,12 +139,28 @@ def catalogo_de(res: dict) -> n.Catalogo:
     return obter_catalogo(tuple(tuple(par) for par in res["ancoras"]), res["semente"])
 
 
+def avisar_sorteios_excluidos(sorteios: list[tuple[str, tuple[int, ...]]]) -> None:
+    """Explica os sorteios que, como jogo, estariam fora do catálogo pelas regras de exclusão."""
+    for rotulo, dezenas in sorteios:
+        motivos = [
+            m for m, ativo in zip(n.MOTIVOS_EXCLUSAO, n.motivos_exclusao(np.array(dezenas)), strict=True) if ativo
+        ]
+        if motivos:
+            st.info(
+                f"**{rotulo}** ({' '.join(f'{d:02d}' for d in dezenas)}) se enquadra nas regras de exclusão "
+                f"({', '.join(motivos)}): esse jogo não existe no catálogo, então **Sena não é possível** neste sorteio. "
+                "Quinas e Quadras vêm de outros jogos aprovados que acertam 5 ou 4 dessas dezenas."
+            )
+
+
 def mostrar_regras_exclusao(cat: n.Catalogo) -> None:
     """Regras do cliente: os jogos excluídos não entram em nenhum lote."""
     with st.expander(f"✅ Jogos excluídos do catálogo (regras {n.REGRAS_VERSAO})", expanded=False):
         st.write(
             "Ficam **de fora** os jogos com **as 6 dezenas pares**, **as 6 ímpares** ou "
-            f"**{n.MAX_SEGUIDAS + 1} ou mais dezenas consecutivas** (ex.: 22-23-24-25). "
+            f"**{n.MAX_SEGUIDAS + 1} ou mais dezenas consecutivas** (ex.: 22-23-24), "
+            f"ou com **mais de {n.MAX_POR_FAIXA} dezenas na mesma faixa** "
+            "(01-10, 11-20, 21-30, 31-40, 41-50 ou 51-60). "
             "Os lotes de 5 são formados só com os jogos aprovados, na ordem do conjunto completo."
         )
         a, b, c, d = st.columns(4)
@@ -158,6 +174,7 @@ def mostrar_regras_exclusao(cat: n.Catalogo) -> None:
                 index=pd.Index([m.capitalize() for m in cat.excluidos_por_motivo], name="Regra"),
             )
         )
+        st.caption("Um jogo pode se enquadrar em mais de uma regra; por isso, a soma das contagens por regra pode superar o total excluído.")
         if cat.jogos_descartados:
             st.caption(
                 f"Como {milhar(cat.total_aprovados)} não é múltiplo de {n.JOGOS_POR_LOTE}, os últimos "
@@ -540,6 +557,8 @@ def mostrar_conferidor(res: dict) -> None:
         st.success(f"🎉 {milhar(total)} jogo(s) premiado(s) em {len(sorteios)} sorteio(s) conferido(s)!")
     else:
         st.warning(f"Nenhum jogo premiado (Quadra ou mais) em {len(sorteios)} sorteio(s) conferido(s).")
+
+    avisar_sorteios_excluidos(sorteios)
 
     colunas_resumo = st.columns(4)
     for coluna, faixa in zip(colunas_resumo, FAIXAS):

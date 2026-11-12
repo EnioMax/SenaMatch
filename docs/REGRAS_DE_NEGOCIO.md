@@ -5,9 +5,9 @@ Status: proposta para validação com o cliente. Itens marcados com **(decidir)*
 ## 1. Produto
 
 - O produto é o **lote**: 5 jogos de 6 dezenas da Mega-Sena, gerados pelo núcleo ([`streamlit/nucleo.py`](../streamlit/nucleo.py)).
-- Universo: o programa gera 38.001.600 jogos distintos. Os jogos que se enquadram nas regras de exclusão (R13) saem, e os **7.410.442 lotes numerados** (com as âncoras do cliente) são formados só com os **37.052.210 jogos aprovados** que entram em lotes (cada jogo existe uma única vez).
+- Universo: o programa gera 38.001.600 jogos distintos. Os jogos que se enquadram nas regras de exclusão (R13) saem, e os **6.983.195 lotes numerados** (com as âncoras do cliente) são formados só com os **34.915.975 jogos aprovados** que entram em lotes (cada jogo existe uma única vez).
 - O cliente compra a **lista de jogos e a conferência**. A aposta é feita por ele nas lotéricas ou no app da Caixa. O SenaMatch **não vende aposta, não recebe prêmio e não intermedeia jogo**.
-- Todo jogo tem a mesma chance (1 em 50.063.860). O que o produto entrega: exclusividade do lote, cobertura equilibrada (cada dezena aparece em 3,70 milhões de jogos, com diferença inferior a 1% entre as dezenas), organização e conferência automática. **Nenhum texto do site pode prometer mais chance de ganhar ou ganhos.**
+- Todo jogo tem a mesma chance (1 em 50.063.860). O que o produto entrega: exclusividade do lote, cobertura equilibrada (cada dezena aparece em cerca de 3,49 milhões de jogos, com diferença inferior a 2,2% entre a dezena mais e a menos frequente), organização e conferência automática. **Nenhum texto do site pode prometer mais chance de ganhar ou ganhos.**
 
 ## 2. Regras
 
@@ -25,7 +25,7 @@ Status: proposta para validação com o cliente. Itens marcados com **(decidir)*
 | R10 | **LGPD.** Consentimento separado para (a) uso do e-mail para o produto e (b) contato por WhatsApp/marketing. Descadastro em 1 clique, exclusão de dados sob pedido, política de privacidade publicada. |
 | R11 | **Reembolso (decidir, com revisão jurídica).** Compra online tem direito de arrependimento de 7 dias (CDC, art. 49). Sugestão: reembolso integral se nenhum sorteio tiver sido conferido com o lote. Depois disso, o lote já foi "usado". |
 | R12 | **Lote entregue é definitivo.** Mesmo código, âncoras e lote geram sempre os mesmos jogos (determinístico), então reenvio e reemissão são idênticos. |
-| R13 | **Exclusão de jogos (regras v1, pedidas pelo cliente).** Os jogos com as 6 dezenas pares, as 6 ímpares ou 4 ou mais dezenas consecutivas (ex.: 22-23-24-25) **não entram em nenhum lote**. Os lotes de 5 são formados só com os jogos aprovados, na ordem do conjunto completo (`nucleo.Catalogo`), com numeração própria. Com as âncoras do cliente: 949.388 jogos excluídos (439.019 só pares, 439.019 só ímpares, 71.350 com 4+ consecutivas), 37.052.212 aprovados e 7.410.442 lotes; os 2 últimos jogos aprovados ficam sem lote. A numeração dos lotes depende das âncoras, do segredo e da versão das regras: registre `REGRAS_VERSAO` em cada venda e nunca altere as regras depois de vender. Isso não aumenta a chance de ganhar (1 em 50.063.860) e a comunicação nunca deve prometer isso. |
+| R13 | **Exclusão de jogos (regras v3, pedidas pelo cliente).** Os jogos com as 6 dezenas pares, as 6 ímpares, 3 ou mais dezenas consecutivas (ex.: 22-23-24) ou mais de 3 dezenas em uma mesma faixa de dezena (01-10, 11-20, 21-30, 31-40, 41-50 ou 51-60) **não entram em nenhum lote**. Os lotes de 5 são formados só com os jogos aprovados, na ordem do conjunto completo (`nucleo.Catalogo`), com numeração própria. Com as âncoras do cliente: 3.085.625 jogos excluídos, 34.915.975 aprovados e 6.983.195 lotes. As contagens por motivo podem se sobrepor. A numeração dos lotes depende das âncoras, do segredo e da versão das regras: registre `REGRAS_VERSAO` em cada venda e nunca altere as regras depois de vender. Isso não aumenta a chance de ganhar (1 em 50.063.860) e a comunicação nunca deve prometer isso. |
 
 ## 3. Preços sugeridos (hipótese a validar)
 

@@ -14,7 +14,7 @@ Estrutura:
 
 CATÁLOGO DE VENDA: os jogos que se enquadram nas regras de exclusão (ver `jogos_excluidos`) não entram em
 nenhum lote; `Catalogo` forma os lotes de 5 só com os jogos aprovados, na ordem acima, com numeração própria.
-Isso desfaz a igualdade exata entre as dezenas (diferença inferior a 1%).
+Isso desfaz a igualdade exata entre as dezenas (diferença inferior a 2,2% entre a dezena mais e a menos frequente).
 
 O código do apostador e o segredo (HMAC) definem a ORDEM dos blocos e a ordem dos
 64 jogos dentro de cada bloco. Mesmo código + mesmas âncoras -> sempre o mesmo conjunto.
@@ -267,13 +267,19 @@ def gerar_lotes(ancoras: np.ndarray, semente: int, lotes: np.ndarray) -> tuple[n
 # de 5 são formados só com jogos aprovados. Excluir padrões não aumenta a chance de uma combinação
 # (todas valem 1 em 50.063.860).
 # ----------------------------------------------------------------------
-REGRAS_VERSAO = "v1"  # registre com qual versão cada lote foi vendido
-MAX_SEGUIDAS = 3  # exclui jogos com 4 ou mais dezenas consecutivas (ex.: 22-23-24-25)
-MOTIVOS_EXCLUSAO = ("todas pares", "todas ímpares", f"{MAX_SEGUIDAS + 1} ou mais consecutivas")
+REGRAS_VERSAO = "v3"  # registre com qual versão cada lote foi vendido
+MAX_SEGUIDAS = 2  # exclui jogos com 3 ou mais dezenas consecutivas (ex.: 22-23-24)
+MAX_POR_FAIXA = 3  # exclui jogos com mais de 3 dezenas em qualquer faixa de dezena
+MOTIVOS_EXCLUSAO = (
+    "todas pares",
+    "todas ímpares",
+    f"{MAX_SEGUIDAS + 1} ou mais consecutivas",
+    f"mais de {MAX_POR_FAIXA} na mesma faixa de dezena",
+)
 
 
 def motivos_exclusao(jogos: np.ndarray) -> np.ndarray:
-    """Máscaras de exclusão por regra, shape (3, ...): pares, ímpares e consecutivas (ver MOTIVOS_EXCLUSAO).
+    """Máscaras de exclusão por regra, shape (4, ...): paridade, consecutivas e faixa de dezena.
 
     jogos: (..., 6), com dezenas de 1 a 60, em qualquer ordem.
     """
@@ -283,14 +289,17 @@ def motivos_exclusao(jogos: np.ndarray) -> np.ndarray:
     pares = (ordenados % 2 == 0).sum(axis=-1)
     seguidas = np.diff(ordenados, axis=-1) == 1
     sequencia = np.zeros(pares.shape, dtype=bool)
-    # 4 consecutivas = 3 diferenças iguais a 1 em sequência
+    # (MAX_SEGUIDAS + 1) consecutivas = MAX_SEGUIDAS diferenças iguais a 1 em sequência
     for i in range(seguidas.shape[-1] - MAX_SEGUIDAS + 1):
         sequencia |= seguidas[..., i : i + MAX_SEGUIDAS].all(axis=-1)
-    return np.stack([pares == COLUNAS_POR_BLOCO, pares == 0, sequencia])
+    faixas = (ordenados - 1) // 10
+    repeticoes_por_dezena = (faixas[..., :, None] == faixas[..., None, :]).sum(axis=-1)
+    faixa_concentrada = repeticoes_por_dezena.max(axis=-1) > MAX_POR_FAIXA
+    return np.stack([pares == COLUNAS_POR_BLOCO, pares == 0, sequencia, faixa_concentrada])
 
 
 def jogos_excluidos(jogos: np.ndarray) -> np.ndarray:
-    """Máscara dos jogos excluídos (as 6 dezenas pares, as 6 ímpares ou 4+ consecutivas, ex. 22-23-24-25)."""
+    """Máscara dos jogos excluídos por paridade, sequência ou concentração na faixa 01-10 ... 51-60."""
     return motivos_exclusao(jogos).any(axis=0)
 
 
