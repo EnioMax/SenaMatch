@@ -18,18 +18,18 @@ O repositório tem duas partes: o programa que gera os jogos e o site que vende 
 
 ## Site (`site/`)
 
-- O lote é de **5 jogos**, como no programa (7.600.320 lotes). A página do lote (`/meu-lote`) e o painel leem [`site/data/lotes_demo.js`](site/data/lotes_demo.js), gerado pelo núcleo com um **segredo fictício**: são jogos de demonstração, não os da venda. Regere com `tools/gerar_lotes_demo.py`.
+- O lote é de **5 jogos**, como no programa. A página do lote (`/meu-lote`) e o painel leem [`site/data/lotes_demo.js`](site/data/lotes_demo.js), gerado pelo núcleo com um **segredo fictício**: são jogos de demonstração, não os da venda. Regere com `tools/gerar_lotes_demo.py`.
 - O painel do gestor guarda dados no `localStorage` do navegador, sem autenticação: não use com dados reais.
 - Os resultados da página do lote são **oficiais**, vindos da API da Caixa por `/api/sorteios` (com cache de 10 min). O painel ainda usa concursos fictícios.
 
-### Exclusão de jogos e catálogo de venda (regras v3)
+### Exclusão de jogos e catálogo de venda (regras v4)
 
-O cliente pediu para enxugar o catálogo: são excluídos jogos com as 6 dezenas pares, as 6 ímpares, 3 ou mais dezenas consecutivas, ou mais de 3 dezenas em qualquer faixa de dezena (01–10, 11–20, 21–30, 31–40, 41–50 ou 51–60). O núcleo ([`streamlit/nucleo.py`](streamlit/nucleo.py)) mantém o conjunto completo (`gerar_lotes`) e forma o **catálogo de venda** (`criar_catalogo` → `Catalogo`): os jogos aprovados, na ordem do conjunto completo, agrupados de 5 em 5, com numeração própria. Com as âncoras do cliente são 3.085.625 jogos excluídos, 34.915.975 aprovados e **6.983.195 lotes**. As contagens por motivo podem se sobrepor. O catálogo guarda só 1 bit por jogo (~5 MB) e leva cerca de 20 s para ser montado.
+São excluídos jogos com as 6 dezenas pares, as 6 ímpares, 4 ou mais dezenas consecutivas, ou mais de 3 dezenas em qualquer faixa de dezena (01–10, 11–20, 21–30, 31–40, 41–50 ou 51–60). O núcleo ([`streamlit/nucleo.py`](streamlit/nucleo.py)) mantém o conjunto completo (`gerar_lotes`) e forma o **catálogo de venda** (`criar_catalogo` → `Catalogo`): os jogos aprovados, na ordem do conjunto completo, agrupados de 5 em 5, com numeração própria. Com as âncoras do cliente são 2.150.551 jogos excluídos, 35.851.049 aprovados e **7.170.209 lotes**; os últimos 4 jogos aprovados ficam sem lote. As contagens por motivo podem se sobrepor. O catálogo guarda só 1 bit por jogo (~5 MB).
 
 - O app (tela de lotes, arquivos CSV/ZIP, conferidor e simulador) usa o catálogo. O painel **Jogos excluídos do catálogo** mostra os totais por regra.
-- Como os jogos excluídos saem, as dezenas deixam de aparecer exatamente o mesmo número de vezes (diferença inferior a 2,2% entre a dezena mais e a menos frequente).
+- Como os jogos excluídos saem, as dezenas deixam de aparecer exatamente o mesmo número de vezes.
 - O catálogo demo do site é formado por esse catálogo (`tools/gerar_lotes_demo.py`).
-- Isso não aumenta a chance de ganhar. Versão das regras em `REGRAS_VERSAO`.
+- Isso não aumenta a chance de ganhar. A v4 altera a numeração e a composição dos lotes em relação à v3; não substitua a versão de um catálogo já vendido. Versão das regras em `REGRAS_VERSAO`.
 
 ### Catálogo filtrado experimental
 

@@ -12,7 +12,7 @@ Regra do conjunto:
     e os outros 4 são herdados de grupos diferentes. Nenhum jogo se repete. A regra é fixa (sem sorteio).
   - Cada jogo mostra as 6 dezenas em ordem crescente (menor à esquerda), como o resultado do sorteio.
 
-Catálogo de venda: jogos com 6 pares, 6 ímpares, 3+ consecutivas ou mais de 3 dezenas na mesma faixa de dezena
+Catálogo de venda: jogos com 6 pares, 6 ímpares, 4+ consecutivas ou mais de 3 dezenas na mesma faixa de dezena
 ficam de fora. Os lotes de 5 são formados só com os jogos aprovados (nucleo.Catalogo), com numeração própria.
 
 O código do apostador e o segredo do servidor definem a ORDEM dos blocos e dos jogos
@@ -158,7 +158,7 @@ def mostrar_regras_exclusao(cat: n.Catalogo) -> None:
     with st.expander(f"✅ Jogos excluídos do catálogo (regras {n.REGRAS_VERSAO})", expanded=False):
         st.write(
             "Ficam **de fora** os jogos com **as 6 dezenas pares**, **as 6 ímpares** ou "
-            f"**{n.MAX_SEGUIDAS + 1} ou mais dezenas consecutivas** (ex.: 22-23-24), "
+            f"**{n.MAX_SEGUIDAS + 1} ou mais dezenas consecutivas** (ex.: 22-23-24-25), "
             f"ou com **mais de {n.MAX_POR_FAIXA} dezenas na mesma faixa** "
             "(01-10, 11-20, 21-30, 31-40, 41-50 ou 51-60). "
             "Os lotes de 5 são formados só com os jogos aprovados, na ordem do conjunto completo."

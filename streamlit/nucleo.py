@@ -14,7 +14,7 @@ Estrutura:
 
 CATÁLOGO DE VENDA: os jogos que se enquadram nas regras de exclusão (ver `jogos_excluidos`) não entram em
 nenhum lote; `Catalogo` forma os lotes de 5 só com os jogos aprovados, na ordem acima, com numeração própria.
-Isso desfaz a igualdade exata entre as dezenas (diferença inferior a 2,2% entre a dezena mais e a menos frequente).
+Isso desfaz a igualdade exata entre as dezenas.
 
 O código do apostador e o segredo (HMAC) definem a ORDEM dos blocos e a ordem dos
 64 jogos dentro de cada bloco. Mesmo código + mesmas âncoras -> sempre o mesmo conjunto.
@@ -267,8 +267,8 @@ def gerar_lotes(ancoras: np.ndarray, semente: int, lotes: np.ndarray) -> tuple[n
 # de 5 são formados só com jogos aprovados. Excluir padrões não aumenta a chance de uma combinação
 # (todas valem 1 em 50.063.860).
 # ----------------------------------------------------------------------
-REGRAS_VERSAO = "v3"  # registre com qual versão cada lote foi vendido
-MAX_SEGUIDAS = 2  # exclui jogos com 3 ou mais dezenas consecutivas (ex.: 22-23-24)
+REGRAS_VERSAO = "v4"  # registre com qual versão cada lote foi vendido
+MAX_SEGUIDAS = 3  # exclui jogos com 4 ou mais dezenas consecutivas (ex.: 22-23-24-25)
 MAX_POR_FAIXA = 3  # exclui jogos com mais de 3 dezenas em qualquer faixa de dezena
 MOTIVOS_EXCLUSAO = (
     "todas pares",
@@ -781,7 +781,7 @@ def criar_catalogo(ancoras: list[list[int]], semente: int, tamanho: int = 50_000
     for ini in range(0, TOTAL_LOTES, tamanho):
         fim = min(ini + tamanho, TOTAL_LOTES)
         _, jogos = gerar_lotes(anc, semente, np.arange(ini, fim))
-        motivos = motivos_exclusao(jogos)  # (3, n, 5)
+        motivos = motivos_exclusao(jogos)  # (4, n, 5)
         ok = ~motivos.any(axis=0)
         aprovados[ini * JOGOS_POR_LOTE : fim * JOGOS_POR_LOTE] = ok.reshape(-1)
         por_motivo += motivos.reshape(len(MOTIVOS_EXCLUSAO), -1).sum(axis=1)

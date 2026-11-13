@@ -44,7 +44,7 @@ Legenda: `[x]` feito · `[ ]` a fazer · **(cliente)** depende de decisão ou ap
 - [ ] **(você)** Registrar o domínio e criar conta no serviço de e-mail (Resend ou Brevo)
 - [ ] Confirmação por e-mail: token por lead (KV), e-mail de boas-vindas e liberação do lote em `/meu-lote?t=...`
 
-- [x] Regras de exclusão v3 (jogos com 6 pares, 6 ímpares, 3+ consecutivas ou mais de 3 dezenas na mesma faixa de dez): lotes formados só com jogos aprovados (`Catalogo`), no núcleo, no app e no catálogo demo
+- [x] Regras de exclusão v4 (jogos com 6 pares, 6 ímpares, 4+ consecutivas ou mais de 3 dezenas na mesma faixa de dez): lotes formados só com jogos aprovados (`Catalogo`), no núcleo, no app e no catálogo demo
 - [ ] **(cliente)** Confirmar as regras v1 e se quer outros critérios (soma, final das dezenas)
 
 ## Fase 3 — Venda de verdade (backend)
