@@ -2,6 +2,74 @@
 
 Legenda: `[x]` feito · `[ ]` a fazer · **(cliente)** depende de decisão ou aprovação do cliente · **(você)** ação sua, por exigir conta ou credencial.
 
+## Plano de execução (análise de 25/11/2026)
+
+Jornada alvo: anúncio no Instagram → landing (simulador, oferta e formulário) → e-mail/WhatsApp de confirmação → página do lote cortesia (lote, simulador, conferidor, vídeo). Marque cada item ao concluir; as fases abaixo detalham o que já existia.
+
+### Etapa 1 — Corrigir o que está errado e proteger o que está exposto
+
+- [x] Landing: trocar "mais de 7 milhões de lotes" por 4.176.479 (regras v5)
+- [x] Landing: remover "diferença inferior a 2,2%" e "dezenas distribuídas de forma equilibrada" (a v5 deixa a dezena mais frequente ~18% acima da menos frequente)
+- [x] Trocar o selo "Mais escolhido" (sem vendas que o sustentem) por "Recomendado", na landing e na página do lote
+- [x] Landing: o texto de sucesso do formulário não promete e-mail/WhatsApp que ainda não são enviados
+- [x] Proteger `/admin` com senha (Basic Auth em `functions/_middleware.js`, falha fechada sem `ADMIN_PASSWORD`) e `noindex`
+- [ ] **(você)** Criar o secret `ADMIN_PASSWORD` na Cloudflare e refazer o deploy; até lá o painel responde 503 (bloqueado)
+- [x] Trocar o botão "Entrar" do menu (abria o lote de demonstração) por "Lote grátis"; o exemplo ficou como link "Ver um lote de exemplo" em Como funciona
+- [x] Landing: usar `/api/sorteios` no lugar da API da Caixa direto do navegador
+
+### Etapa 2 — Lead → confirmação → lote cortesia (núcleo do funil)
+
+- [ ] Registrar `utm_source`, `utm_medium` e `utm_campaign` no lead (campo `origem` hoje é fixo)
+- [ ] **(você)** Registrar o domínio e criar conta no serviço de e-mail (Resend ou Brevo); criar um KV na Cloudflare para os tokens
+- [ ] Gerar token por lead (uso único, com validade) e enviar o e-mail de confirmação
+- [ ] `GET /confirmar?t=...`: marcar o lead como confirmado e liberar o lote cortesia
+- [ ] Botão "Confirmar no WhatsApp" (`wa.me` com o código) como prova do número, sem API oficial
+- [ ] `/meu-lote?t=...` lê o lote do lead no servidor; remover `?lote=N&j=...` e o lote de demonstração das rotas reais
+- [ ] Reenvio do link de confirmação e tratamento de link expirado ou já usado
+- [ ] Texto do formulário e página de "verifique seu e-mail" alinhados ao fluxo
+
+### Etapa 3 — Métricas
+
+- [ ] Análise de funil: visita → clique no CTA → lead → confirmado → compra, respeitando consentimento
+- [ ] Painel simples de conversão por campanha (a partir dos UTMs)
+
+### Etapa 4 — Landing que vende
+
+- [ ] Mini-simulador na landing (6 a 15 dezenas contra o último concurso)
+- [ ] Formulário curto ou CTA mais cedo na página (hoje o formulário é quase o último bloco)
+- [ ] Vídeo explicativo (45 a 60 s) abaixo do hero: hospedagem, legenda e carregamento sob demanda **(cliente: roteiro)**
+- [ ] Imagem de compartilhamento (Open Graph), favicon e `robots.txt`/`sitemap.xml`
+- [ ] Testar no navegador interno do Instagram (copiar, links externos, `wa.me`)
+
+### Etapa 5 — Página do lote e conferidor
+
+- [ ] Cartão "Comece aqui" com o vídeo no topo da página do lote
+- [ ] Conferidor com dezenas digitadas (hoje só busca concurso por número)
+- [ ] Após o sorteio: "seu lote foi conferido: N acertos" com chamada para o Trio
+- [ ] Ofertas no fim da página, com o botão de compra coerente com o canal definido
+
+### Etapa 6 — Qualidade e requisitos legais
+
+- [ ] Compilar o Tailwind (tirar o CDN)
+- [ ] Páginas de Privacidade, Termos e Reembolso **(cliente: revisão jurídica)**
+- [ ] Conferir a política de anúncios da Meta para conteúdo ligado a loterias antes de investir em tráfego
+- [ ] Lighthouse ≥ 90 e revisão de acessibilidade
+
+### Etapa 7 — Venda de verdade
+
+Ver a Fase 3 abaixo (gateway, backend, alocação atômica, checkout Pix e cartão).
+
+### Sugestões e backlog
+
+Ideias que melhoram o produto, para decidir e puxar para uma etapa conforme avançamos. Marque `[x]` ao implementar e escreva `descartada` ao lado das recusadas.
+
+- [ ] Compartilhar o resultado ("meu lote teve 1 quadra") como imagem, para gerar indicação orgânica
+- [ ] Indique um amigo: ganha outro lote cortesia quando o amigo confirmar (1 por pessoa continua valendo)
+- [ ] Lembrete antes do sorteio (e-mail/WhatsApp) para o cliente apostar a tempo
+- [ ] Opção de receber os avisos só por e-mail ou só por WhatsApp
+- [ ] Página pública de resultado do último concurso, para tráfego de busca (SEO)
+- [ ] PWA: instalar o `/meu-lote` na tela inicial do celular
+
 ## Fase 0 — Base e regras (feito)
 
 - [x] Regras de negócio, preços sugeridos e jornada ([REGRAS_DE_NEGOCIO.md](./REGRAS_DE_NEGOCIO.md))

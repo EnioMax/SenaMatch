@@ -3,3 +3,4 @@ TRELLO_TOKEN=cole_aqui_o_token
 TRELLO_LIST_ID=cole_aqui_o_id_da_lista
 # ALLOWED_ORIGIN=https://senamatch.pages.dev,https://senamatch.com.br
 WHATSAPP_NUMERO=DDD_e_numero_so_digitos
+ADMIN_PASSWORD=escolha_uma_senha_forte_para_o_painel
