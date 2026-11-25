@@ -454,7 +454,7 @@ def buscar_concursos_caixa() -> None:
     if not col_botao.button(
         "📥 Buscar da Caixa",
         key="btn_caixa",
-        help="Consulta os resultados oficiais da Mega-Sena e já os confere (substitui o texto atual).",
+        help="Consulta os resultados oficiais da Mega-Sena e preenche a caixa abaixo (substitui o texto atual). Depois, clique em Conferir.",
     ):
         return
     with st.spinner("Consultando a Caixa..."):
@@ -469,6 +469,7 @@ def buscar_concursos_caixa() -> None:
         premios[rotulo] = c["premios"]
     st.session_state["texto_sorteios"] = "\n".join(linhas)
     st.session_state["premios_caixa"] = premios
+    st.session_state.pop("texto_conferido", None)
     if falhas:
         st.warning(f"{falhas} concurso(s) não puderam ser lidos e ficaram de fora.")
 
@@ -521,14 +522,21 @@ def mostrar_conferidor(res: dict) -> None:
             placeholder="Concurso 2800: 04 11 25 38 47 59\n05 17 23 31 42 60",
             key="texto_sorteios",
         )
-        st.form_submit_button("✅ Conferir", type="primary", key="btn_conferir")
-    sorteios, erros = n.interpretar_sorteios(texto)
+        if st.form_submit_button("✅ Conferir", type="primary", key="btn_conferir"):
+            st.session_state["texto_conferido"] = texto
+    texto_conferido = st.session_state.get("texto_conferido")
+    if texto_conferido is None:
+        st.info("Preencha os sorteios e clique em **Conferir** para ver o resultado.")
+        return
+    sorteios, erros = n.interpretar_sorteios(texto_conferido)
     for erro in erros:
         st.error(erro)
     if not sorteios:
         if not erros:
             st.info("Aguardando o resultado dos sorteios.")
         return
+    if texto != texto_conferido:
+        st.caption("⚠️ O texto foi alterado desde a última conferência; clique em **Conferir** para atualizar.")
     sorteios, repetidos = n.rotulos_unicos(sorteios)
     if repetidos:
         st.warning(f"Rótulos repetidos ({', '.join(repetidos)}): numerei os repetidos para diferenciá-los.")
