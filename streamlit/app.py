@@ -1,5 +1,5 @@
 """
-SenaMatch - Simulador de Lotes (v4)
+SenaMatch - Simulador de Lotes (v5)
 
 Regra do conjunto:
   - 30 colunas (N1..N30), cada uma com 2 dezenas âncora (as 60 dezenas, todas diferentes).
@@ -161,6 +161,8 @@ def mostrar_regras_exclusao(cat: n.Catalogo) -> None:
             f"**{n.MAX_SEGUIDAS + 1} ou mais dezenas consecutivas** (ex.: 22-23-24-25), "
             f"ou com **mais de {n.MAX_POR_FAIXA} dezenas na mesma faixa** "
             "(01-10, 11-20, 21-30, 31-40, 41-50 ou 51-60). "
+            f"Também ficam de fora os jogos cuja **soma das 6 dezenas** não esteja **entre {n.SOMA_MIN} e {n.SOMA_MAX}** "
+            "(limites incluídos). "
             "Os lotes de 5 são formados só com os jogos aprovados, na ordem do conjunto completo."
         )
         a, b, c, d = st.columns(4)

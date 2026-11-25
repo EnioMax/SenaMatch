@@ -22,14 +22,14 @@ O repositório tem duas partes: o programa que gera os jogos e o site que vende 
 - O painel do gestor guarda dados no `localStorage` do navegador, sem autenticação: não use com dados reais.
 - Os resultados da página do lote são **oficiais**, vindos da API da Caixa por `/api/sorteios` (com cache de 10 min). O painel ainda usa concursos fictícios.
 
-### Exclusão de jogos e catálogo de venda (regras v4)
+### Exclusão de jogos e catálogo de venda (regras v5)
 
-São excluídos jogos com as 6 dezenas pares, as 6 ímpares, 4 ou mais dezenas consecutivas, ou mais de 3 dezenas em qualquer faixa de dezena (01–10, 11–20, 21–30, 31–40, 41–50 ou 51–60). O núcleo ([`streamlit/nucleo.py`](streamlit/nucleo.py)) mantém o conjunto completo (`gerar_lotes`) e forma o **catálogo de venda** (`criar_catalogo` → `Catalogo`): os jogos aprovados, na ordem do conjunto completo, agrupados de 5 em 5, com numeração própria. Com as âncoras do cliente são 2.150.551 jogos excluídos, 35.851.049 aprovados e **7.170.209 lotes**; os últimos 4 jogos aprovados ficam sem lote. As contagens por motivo podem se sobrepor. O catálogo guarda só 1 bit por jogo (~5 MB).
+São excluídos jogos com as 6 dezenas pares, as 6 ímpares, 4 ou mais dezenas consecutivas, ou mais de 3 dezenas em qualquer faixa de dezena (01–10, 11–20, 21–30, 31–40, 41–50 ou 51–60). Também são excluídos os jogos cuja **soma das 6 dezenas** fique fora de **150 a 216** (limites incluídos). O núcleo ([`streamlit/nucleo.py`](streamlit/nucleo.py)) mantém o conjunto completo (`gerar_lotes`) e forma o **catálogo de venda** (`criar_catalogo` → `Catalogo`): os jogos aprovados, na ordem do conjunto completo, agrupados de 5 em 5, com numeração própria. Com as âncoras do cliente são 17.119.202 jogos excluídos, 20.882.398 aprovados e **4.176.479 lotes** (22 arquivos CSV, 5 ZIPs); os últimos 3 jogos aprovados ficam sem lote. As contagens por motivo podem se sobrepor. O catálogo guarda só 1 bit por jogo (~5 MB).
 
 - O app (tela de lotes, arquivos CSV/ZIP, conferidor e simulador) usa o catálogo. O painel **Jogos excluídos do catálogo** mostra os totais por regra.
-- Como os jogos excluídos saem, as dezenas deixam de aparecer exatamente o mesmo número de vezes.
+- Como os jogos excluídos saem, as dezenas deixam de aparecer exatamente o mesmo número de vezes: a soma tira mais jogos com dezenas extremas (a dezena 01 aparece ~9% e a 60 ~6% abaixo da média; a 28 ~5% acima), e a mais frequente aparece ~18% mais que a menos frequente.
 - O catálogo demo do site é formado por esse catálogo (`tools/gerar_lotes_demo.py`).
-- Isso não aumenta a chance de ganhar. A v4 altera a numeração e a composição dos lotes em relação à v3; não substitua a versão de um catálogo já vendido. Versão das regras em `REGRAS_VERSAO`.
+- Isso não aumenta a chance de ganhar. A v5 altera a numeração e a composição dos lotes em relação à v4 (e à v3); não substitua a versão de um catálogo já vendido. Versão das regras em `REGRAS_VERSAO`.
 
 ### Catálogo filtrado experimental
 

@@ -267,19 +267,22 @@ def gerar_lotes(ancoras: np.ndarray, semente: int, lotes: np.ndarray) -> tuple[n
 # de 5 são formados só com jogos aprovados. Excluir padrões não aumenta a chance de uma combinação
 # (todas valem 1 em 50.063.860).
 # ----------------------------------------------------------------------
-REGRAS_VERSAO = "v4"  # registre com qual versão cada lote foi vendido
+REGRAS_VERSAO = "v5"  # registre com qual versão cada lote foi vendido
 MAX_SEGUIDAS = 3  # exclui jogos com 4 ou mais dezenas consecutivas (ex.: 22-23-24-25)
 MAX_POR_FAIXA = 3  # exclui jogos com mais de 3 dezenas em qualquer faixa de dezena
+SOMA_MIN = 150  # exclui jogos cuja soma das 6 dezenas fique fora de [SOMA_MIN, SOMA_MAX] (limites incluídos)
+SOMA_MAX = 216
 MOTIVOS_EXCLUSAO = (
     "todas pares",
     "todas ímpares",
     f"{MAX_SEGUIDAS + 1} ou mais consecutivas",
     f"mais de {MAX_POR_FAIXA} na mesma faixa de dezena",
+    f"soma fora de {SOMA_MIN} a {SOMA_MAX}",
 )
 
 
 def motivos_exclusao(jogos: np.ndarray) -> np.ndarray:
-    """Máscaras de exclusão por regra, shape (4, ...): paridade, consecutivas e faixa de dezena.
+    """Máscaras de exclusão por regra, shape (5, ...): paridade, consecutivas, faixa de dezena e soma.
 
     jogos: (..., 6), com dezenas de 1 a 60, em qualquer ordem.
     """
@@ -295,11 +298,13 @@ def motivos_exclusao(jogos: np.ndarray) -> np.ndarray:
     faixas = (ordenados - 1) // 10
     repeticoes_por_dezena = (faixas[..., :, None] == faixas[..., None, :]).sum(axis=-1)
     faixa_concentrada = repeticoes_por_dezena.max(axis=-1) > MAX_POR_FAIXA
-    return np.stack([pares == COLUNAS_POR_BLOCO, pares == 0, sequencia, faixa_concentrada])
+    soma = ordenados.sum(axis=-1)
+    soma_fora = (soma < SOMA_MIN) | (soma > SOMA_MAX)
+    return np.stack([pares == COLUNAS_POR_BLOCO, pares == 0, sequencia, faixa_concentrada, soma_fora])
 
 
 def jogos_excluidos(jogos: np.ndarray) -> np.ndarray:
-    """Máscara dos jogos excluídos por paridade, sequência ou concentração na faixa 01-10 ... 51-60."""
+    """Máscara dos jogos excluídos por paridade, sequência, concentração na faixa 01-10 ... 51-60 ou soma."""
     return motivos_exclusao(jogos).any(axis=0)
 
 
@@ -781,7 +786,7 @@ def criar_catalogo(ancoras: list[list[int]], semente: int, tamanho: int = 50_000
     for ini in range(0, TOTAL_LOTES, tamanho):
         fim = min(ini + tamanho, TOTAL_LOTES)
         _, jogos = gerar_lotes(anc, semente, np.arange(ini, fim))
-        motivos = motivos_exclusao(jogos)  # (4, n, 5)
+        motivos = motivos_exclusao(jogos)  # (5, n, 5)
         ok = ~motivos.any(axis=0)
         aprovados[ini * JOGOS_POR_LOTE : fim * JOGOS_POR_LOTE] = ok.reshape(-1)
         por_motivo += motivos.reshape(len(MOTIVOS_EXCLUSAO), -1).sum(axis=1)
