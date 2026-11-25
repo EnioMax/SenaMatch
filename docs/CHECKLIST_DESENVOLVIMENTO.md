@@ -13,7 +13,9 @@ Jornada alvo: anúncio no Instagram → landing (simulador, oferta e formulário
 - [x] Trocar o selo "Mais escolhido" (sem vendas que o sustentem) por "Recomendado", na landing e na página do lote
 - [x] Landing: o texto de sucesso do formulário não promete e-mail/WhatsApp que ainda não são enviados
 - [x] Proteger `/admin` com senha (Basic Auth em `functions/_middleware.js`, falha fechada sem `ADMIN_PASSWORD`) e `noindex`
-- [ ] **(você)** Criar o secret `ADMIN_PASSWORD` na Cloudflare e refazer o deploy; até lá o painel responde 503 (bloqueado)
+- [x] **(você)** Criar o secret `ADMIN_PASSWORD` na Cloudflare e refazer o deploy (verificado em 25/11: `/admin` responde 401 pedindo senha em `senamatch.pages.dev` e `senamatch.com.br`)
+- [x] Branch de produção da Cloudflare trocada de `separar-site` para `main`; a partir de agora o push no `main` publica o site
+- [ ] **(você)** Criar o secret `WHATSAPP_NUMERO` (DDD + número, só dígitos) na Cloudflare em **Production** e refazer o deploy; sem ele os botões de WhatsApp respondem "indisponível"
 - [x] Trocar o botão "Entrar" do menu (abria o lote de demonstração) por "Lote grátis"; o exemplo ficou como link "Ver um lote de exemplo" em Como funciona
 - [x] Landing: usar `/api/sorteios` no lugar da API da Caixa direto do navegador
 
