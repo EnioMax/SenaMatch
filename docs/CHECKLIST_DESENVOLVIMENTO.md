@@ -16,7 +16,7 @@ Jornada alvo: anúncio no Instagram → landing (simulador, oferta e formulário
 - [x] **(você)** Criar o secret `ADMIN_PASSWORD` na Cloudflare e refazer o deploy (verificado em 25/11: `/admin` responde 401 pedindo senha em `senamatch.pages.dev` e `senamatch.com.br`)
 - [x] Branch de produção da Cloudflare trocada de `separar-site` para `main`; a partir de agora o push no `main` publica o site
 - [x] **(você)** Criar o secret `WHATSAPP_NUMERO` (DDD + número, só dígitos) na Cloudflare em **Production** e refazer o deploy (verificado em 26/11: `/go/whatsapp` responde 302 para `wa.me` em `senamatch.pages.dev` e `senamatch.com.br`)
-- [x] Trocar o botão "Entrar" do menu (abria o lote de demonstração) por "Lote grátis"; o exemplo ficou como link "Ver um lote de exemplo" em Como funciona
+- [x] Tirar o botão "Entrar" do menu (abria o lote de demonstração); o exemplo ficou como link "Ver um lote de exemplo" em Como funciona. A pedido do cliente (26/11), também saíram o botão "Lote grátis" do menu e a etiqueta "Lote cortesia grátis para o próximo concurso" do hero; a chamada para o formulário fica nos botões "Quero meu lote grátis"
 - [x] Landing: usar `/api/sorteios` no lugar da API da Caixa direto do navegador
 
 ### Etapa 2 — Lead → confirmação → lote cortesia (núcleo do funil)
