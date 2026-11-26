@@ -48,6 +48,7 @@ O formulário da landing envia para `/api/leads` ([`functions/api/leads.js`](fun
 - `WHATSAPP_NUMERO` (DDD + número, só dígitos): usado por `/go/whatsapp` ([`functions/go/whatsapp.js`](functions/go/whatsapp.js)) para os botões de WhatsApp, sem expor o número no repositório.
 - `ADMIN_PASSWORD`: senha do painel (`/admin`), exigida por Basic Auth em [`functions/_middleware.js`](functions/_middleware.js) (qualquer usuário). Sem ela, o painel fica bloqueado (503).
 - Nunca coloque chave ou token no HTML nem no repositório.
+- Campanhas: use links de anúncio como `https://senamatch.com.br/?utm_source=instagram&utm_medium=cpc&utm_campaign=nome-da-campanha`. A landing envia os três valores com o lead e o cartão do Trello mostra `**UTM:** source=… · medium=… · campaign=…`. Os valores são normalizados (minúsculas, só letras, dígitos, `.`, `-`, `_`, `+` e espaço, até 60 caracteres).
 - Publicação: Cloudflare Pages com diretório de saída `site` (ver [`wrangler.toml`](wrangler.toml)).
 
 Passo a passo completo: [`docs/CHECKLIST_DESENVOLVIMENTO.md`](docs/CHECKLIST_DESENVOLVIMENTO.md). Regras de negócio: [`docs/REGRAS_DE_NEGOCIO.md`](docs/REGRAS_DE_NEGOCIO.md).

@@ -12,6 +12,16 @@ const json = (obj, status = 200) =>
 // Remove quebras de linha e limita o tamanho: o texto vai para o Markdown do cartão
 const limpar = (s, max) => String(s ?? '').replace(/[\r\n\t]+/g, ' ').trim().slice(0, max);
 
+// UTM vem da URL (controlada por quem clica): só letras, dígitos, ponto, hífen, sublinhado, + e espaço.
+// Sem "@", ":" ou "*", não injeta Markdown no cartão nem vira e-mail/WhatsApp falso na checagem de duplicidade
+const slugUtm = (s) => String(s ?? '').replace(/[^\w.\- +]/g, '').trim().toLowerCase().slice(0, 60);
+
+function normalizarUtm(utm) {
+  const u = utm && typeof utm === 'object' ? utm : {};
+  const norm = { source: slugUtm(u.source), medium: slugUtm(u.medium), campaign: slugUtm(u.campaign) };
+  return norm.source || norm.medium || norm.campaign ? norm : null;
+}
+
 export function validarLead(corpo) {
   const c = corpo && typeof corpo === 'object' ? corpo : {};
   const nome = limpar(c.nome, 80);
@@ -24,7 +34,10 @@ export function validarLead(corpo) {
   if (!/^[1-9]\d9?\d{8}$/.test(whatsapp)) return { erro: 'whatsapp' };
   if (c.maior18 !== true) return { erro: 'maior18' };
   if (c.consentimento !== true) return { erro: 'consentimento' };
-  return { lead: { nome, email, whatsapp, origem: limpar(c.origem, 40) || 'landing' } };
+  const lead = { nome, email, whatsapp, origem: limpar(c.origem, 40) || 'landing' };
+  const utm = normalizarUtm(c.utm);
+  if (utm) lead.utm = utm;
+  return { lead };
 }
 
 const descricao = (l, quando) => [
@@ -32,6 +45,7 @@ const descricao = (l, quando) => [
   `**E-mail:** ${l.email}`,
   `**WhatsApp:** ${l.whatsapp}`,
   `**Origem:** ${l.origem}`,
+  ...(l.utm ? [`**UTM:** source=${l.utm.source || '-'} · medium=${l.utm.medium || '-'} · campaign=${l.utm.campaign || '-'}`] : []),
   `**Maior de 18 anos:** sim`,
   `**Consentimento (lote e resultados por e-mail/WhatsApp):** sim, em ${quando}`,
   `**Status:** lote cortesia pendente`,

@@ -15,13 +15,13 @@ Jornada alvo: anúncio no Instagram → landing (simulador, oferta e formulário
 - [x] Proteger `/admin` com senha (Basic Auth em `functions/_middleware.js`, falha fechada sem `ADMIN_PASSWORD`) e `noindex`
 - [x] **(você)** Criar o secret `ADMIN_PASSWORD` na Cloudflare e refazer o deploy (verificado em 25/11: `/admin` responde 401 pedindo senha em `senamatch.pages.dev` e `senamatch.com.br`)
 - [x] Branch de produção da Cloudflare trocada de `separar-site` para `main`; a partir de agora o push no `main` publica o site
-- [ ] **(você)** Criar o secret `WHATSAPP_NUMERO` (DDD + número, só dígitos) na Cloudflare em **Production** e refazer o deploy; sem ele os botões de WhatsApp respondem "indisponível"
+- [x] **(você)** Criar o secret `WHATSAPP_NUMERO` (DDD + número, só dígitos) na Cloudflare em **Production** e refazer o deploy (verificado em 26/11: `/go/whatsapp` responde 302 para `wa.me` em `senamatch.pages.dev` e `senamatch.com.br`)
 - [x] Trocar o botão "Entrar" do menu (abria o lote de demonstração) por "Lote grátis"; o exemplo ficou como link "Ver um lote de exemplo" em Como funciona
 - [x] Landing: usar `/api/sorteios` no lugar da API da Caixa direto do navegador
 
 ### Etapa 2 — Lead → confirmação → lote cortesia (núcleo do funil)
 
-- [ ] Registrar `utm_source`, `utm_medium` e `utm_campaign` no lead (campo `origem` hoje é fixo)
+- [x] Registrar `utm_source`, `utm_medium` e `utm_campaign` no lead (a landing lê da URL no envio; o cartão do Trello ganha a linha **UTM**; `origem` continua `landing-cortesia`)
 - [ ] **(você)** Registrar o domínio e criar conta no serviço de e-mail (Resend ou Brevo); criar um KV na Cloudflare para os tokens
 - [ ] Gerar token por lead (uso único, com validade) e enviar o e-mail de confirmação
 - [ ] `GET /confirmar?t=...`: marcar o lead como confirmado e liberar o lote cortesia
@@ -110,7 +110,7 @@ Ideias que melhoram o produto, para decidir e puxar para uma etapa conforme avan
 - [ ] Proteger o painel administrativo: hoje não tem login e guarda dados no navegador. **Não publicar com dados reais antes disso** (ou tirar o link do ar)
 - [x] Página do lote (`/meu-lote`) com resultados oficiais da Caixa, simulador (do lote e livre) e ofertas
 - [ ] Substituir os dados fictícios de concurso do painel administrativo pela API da Caixa
-- [ ] **(você)** Criar o secret `WHATSAPP_NUMERO` na Cloudflare (DDD + número, só dígitos) e refazer o deploy
+- [x] **(você)** Criar o secret `WHATSAPP_NUMERO` na Cloudflare (DDD + número, só dígitos) e refazer o deploy
 - [ ] **(você)** Registrar o domínio e criar conta no serviço de e-mail (Resend ou Brevo)
 - [ ] Confirmação por e-mail: token por lead (KV), e-mail de boas-vindas e liberação do lote em `/meu-lote?t=...`
 

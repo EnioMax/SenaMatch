@@ -30,6 +30,16 @@ describe('validarLead', () => {
   it('tira quebras de linha para não injetar Markdown no cartão', () => {
     assert.equal(validarLead({ ...LEAD, nome: 'Ana\n**Status:** pago' }).lead.nome, 'Ana **Status:** pago');
   });
+  it('normaliza o UTM e descarta caracteres que injetariam Markdown ou e-mail', () => {
+    const utm = { source: ' Instagram ', medium: 'cpc\n**Status:** pago', campaign: 'x@y.com' };
+    assert.deepEqual(validarLead({ ...LEAD, utm }).lead.utm, { source: 'instagram', medium: 'cpcstatus pago', campaign: 'xy.com' });
+    assert.equal(validarLead({ ...LEAD, utm: { source: 'a'.repeat(100) } }).lead.utm.source.length, 60);
+  });
+  it('não cria o UTM quando ausente, vazio ou com formato inválido', () => {
+    for (const utm of [undefined, {}, { source: '  ', medium: '@@' }, 'instagram', null]) {
+      assert.equal('utm' in validarLead({ ...LEAD, utm }).lead, false);
+    }
+  });
 });
 
 describe('POST /api/leads', () => {
@@ -59,6 +69,22 @@ describe('POST /api/leads', () => {
     assert.match(dados.desc, /\*\*E-mail:\*\* maria@exemplo\.com\n/);
     assert.match(criar.init.headers.Authorization, /oauth_consumer_key="k", oauth_token="t"/);
     assert.ok(chamadas.every((c) => !c.url.includes('token=') && !c.url.includes('key=')));
+  });
+  it('grava o UTM no cartão e não o confunde com e-mail ou WhatsApp de outro lead', async () => {
+    const utm = { source: 'Instagram', medium: 'cpc', campaign: 'mega-virada' };
+    await onRequestPost({ request: pedido({ ...LEAD, utm }), env: ENV });
+    const dados = JSON.parse(chamadas.find((c) => c.init.method === 'POST').init.body);
+    assert.match(dados.desc, /\*\*Origem:\*\* landing-cortesia\n\*\*UTM:\*\* source=instagram · medium=cpc · campaign=mega-virada\n/);
+
+    chamadas.length = 0;
+    cartoes = [{ desc: '**E-mail:** outra@pessoa.com\n**UTM:** source=whatsapp · medium=- · campaign=-\n' }];
+    await onRequestPost({ request: pedido({ ...LEAD, utm: { source: 'whatsapp' } }), env: ENV });
+    assert.ok(chamadas.some((c) => c.init.method === 'POST'));
+  });
+  it('sem UTM, o cartão não ganha a linha de UTM', async () => {
+    await onRequestPost({ request: pedido(LEAD), env: ENV });
+    const dados = JSON.parse(chamadas.find((c) => c.init.method === 'POST').init.body);
+    assert.doesNotMatch(dados.desc, /UTM/);
   });
   it('consulta o quadro inteiro, inclusive cartões arquivados', async () => {
     await onRequestPost({ request: pedido(LEAD), env: ENV });

@@ -285,6 +285,16 @@
       consentimento: { el: form.elements.consentimento, erro: 'erro-consent' },
     };
     const digitos = (s) => s.replace(/\D/g, '');
+    // Campanha que trouxe o visitante (anúncio): lida da URL só no envio, sem guardar nada no navegador
+    function lerUtm() {
+      const params = new URLSearchParams(location.search);
+      const utm = {};
+      for (const k of ['source', 'medium', 'campaign']) {
+        const valor = (params.get('utm_' + k) || '').trim().slice(0, 60);
+        if (valor) utm[k] = valor;
+      }
+      return utm;
+    }
 
     function validar() {
       const v = {
@@ -325,7 +335,7 @@
       mostrarErros(erros);
       const primeiro = Object.keys(erros)[0];
       if (primeiro) { campos[primeiro].el.focus(); return; }
-      const lead = { nome: v.nome, email: v.email, whatsapp: v.whatsapp, maior18: true, consentimento: true, origem: 'landing-cortesia', site: form.elements.site.value };
+      const lead = { nome: v.nome, email: v.email, whatsapp: v.whatsapp, maior18: true, consentimento: true, origem: 'landing-cortesia', utm: lerUtm(), site: form.elements.site.value };
       botao.disabled = true;
       botao.textContent = 'Enviando…';
       try {
